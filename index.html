@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>목포 알리미</title>
+    <style>
+        @font-face {
+            font-family: 'ChangwonDangamRound';
+            src: url('./fonts/ChangwonDangamRound.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+        body { font-family: 'ChangwonDangamRound', 'Noto Sans KR', sans-serif !important; background: linear-gradient(to bottom, #e0f7fa, #ffffff); color: #333; line-height: 1.7; }
+        .main-logo, .hero h1, section h2 { font-weight: 700; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        header { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); padding: 20px 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000; }
+        .main-logo { font-size: 34px; color: #00bcd4; letter-spacing: -1px; }
+        nav { background: #00bcd4; padding: 15px 0; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        nav ul { display: flex; justify-content: center; list-style: none; }
+        nav ul li a { color: white; text-decoration: none; font-size: 18px; font-weight: 500; padding: 12px 30px; margin: 0 10px; border-radius: 50px; transition: all 0.3s; }
+        nav ul li a:hover { background: rgba(255,255,255,0.2); transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        main { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
+        .hero { text-align: center; padding: 100px 20px; background: url('./images/mokpo-bridge.jpg') center/cover no-repeat; border-radius: 20px; color: white; text-shadow: 2px 2px 12px rgba(0,0,0,0.9); margin-bottom: 60px; }
+        .hero h1 { font-size: 50px; margin-bottom: 20px; }
+        .hero p { font-size: 24px; }
+        section { background: white; padding: 40px; margin-bottom: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        section h2 { font-size: 32px; color: #00bcd4; margin-bottom: 20px; position: relative; padding-bottom: 10px; }
+        section h2::after { content: ''; position: absolute; left: 0; bottom: 0; width: 60px; height: 4px; background: #ff4081; border-radius: 2px; }
+        footer { background: #00bcd4; color: white; text-align: center; padding: 30px; margin-top: 50px; font-size: 14px; }
+        #attractions img { width: 100%; max-width: 800px; border-radius: 12px; margin: 20px auto; display: block; box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+        .comment-section { margin-top: 40px; }
+        .comment-form textarea { width: 100%; padding: 15px; border: 2px solid #00bcd4; border-radius: 12px; font-size: 16px; resize: vertical; }
+        .comment-form button { margin-top: 10px; padding: 12px 30px; background: #00bcd4; color: white; border: none; border-radius: 50px; font-size: 16px; cursor: pointer; }
+        .comment-form button:hover { background: #0097a7; }
+        .comment-list { margin-top: 30px; }
+        .comment { background: #f8fdff; padding: 18px; border-radius: 12px; margin-bottom: 15px; border-left: 5px solid #00bcd4; }
+        .comment-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 14px; color: #555; }
+        .comment-actions button { background: none; border: none; cursor: pointer; font-size: 20px; margin: 0 8px; }
+        .like-count { color: #4caf50; margin-left: 4px; font-weight: bold; }
+        .dislike-count { color: #f44336; margin-left: 4px; font-weight: bold; }
+        .loading { text-align: center; padding: 20px; color: #666; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <header><div class="main-logo">목포 알리미</div></header>
+    <nav>
+        <ul>
+            <li><a href="#food">먹거리</a></li>
+            <li><a href="#attractions">명소</a></li>
+            <li><a href="#accommodations">숙소</a></li>
+            <li><a href="#activities">놀거리</a></li>
+        </ul>
+    </nav>
+    <main>
+        <div class="hero">
+            <h1>바다 내음 가득한 도시, 목포</h1>
+            <p>신선한 해산물과 아름다운 항구, 낭만이 가득한 여행지</p>
+        </div>
+        <section id="attractions">
+            <h2>명소</h2>
+            <p style="font-size: 40px;">목포 근대역사관 </p>
+            <p>100년 전, 아시아를 삼켰던 목포의 야심이 붉은 벽돌에 아직도 살아 숨 쉰다.<br>
+            한 번만 들어가면 목포를 평생 잊지 못하게 되는 곳.</p>
+            <img src="images/history_build.jpg" alt="목포 근대역사관">
+            <div class="comment-section">
+                <h3>방문 후기 남기기</h3>
+                <div class="comment-form">
+                    <textarea id="commentInput" rows="4" placeholder="이 곳에 다녀온 솔직한 후기를 남겨주세요!"></textarea>
+                    <button onclick="addComment()">댓글 달기</button>
+                </div>
+                <div id="commentList" class="comment-list">
+                    <div class="loading">댓글 불러오는 중...</div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <footer>© 2025 목포 알리미 — 바다 냄새 맡으러 얼른 오세요!</footer>
+
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const supabaseUrl = 'https://zdpyawhuzidizdlpszvp.supabase.co'
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkcHlhd2h1emlkaXpkbHBzenZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzODc3NzAsImV4cCI6MjA3ODk2Mzc3MH0.kKlQ9j4SZHBbVWXIW9QJFraCq8n3eojWXJWaqrRmxMo'
+
+        const { createClient } = supabase
+        const sb = createClient(supabaseUrl, supabaseAnonKey)
+
+        const commentList = document.getElementById('commentList')
+        const commentInput = document.getElementById('commentInput')
+
+        async function loadComments() {
+            const { data: comments, error } = await sb
+                .from("Comments")        // ← 여기만 대문자 C로 바꿈!
+                .select('*')
+                .order('created_at', { ascending: false })
+
+            if (error) {
+                commentList.innerHTML = '<div class="loading">댓글 로드 실패... 새로고침해보세요</div>'
+                console.error('로드 에러:', error)
+                return
+            }
+
+            commentList.innerHTML = ''
+            if (comments.length === 0) {
+                commentList.innerHTML = '<div class="loading">아직 댓글이 없네요! 첫 댓글의 주인공이 되어주세요</div>'
+                return
+            }
+
+            comments.forEach((c, i) => {
+                const div = document.createElement('div')
+                div.className = 'comment'
+                div.innerHTML = `
+                    <p><strong>익명${i + 1}</strong>: ${c.text.replace(/\n/g, '<br>')}</p>
+                    <div class="comment-meta">
+                        <span>${new Date(c.created_at).toLocaleString('ko-KR')}</span>
+                        <div class="comment-actions">
+                            <button onclick="vote(${c.id}, 'like')">좋아요 <span class="like-count">${c.likes || 0}</span></button>
+                            <button onclick="vote(${c.id}, 'dislike')">싫어요 <span class="dislike-count">${c.dislikes || 0}</span></button>
+                        </div>
+                    </div>
+                `
+                commentList.appendChild(div)
+            })
+        }
+
+        async function addComment() {
+            const text = commentInput.value.trim()
+            if (!text) return alert('댓글을 입력해주세요!')
+            if (text.length > 500) return alert('댓글은 500자 이내로 작성해주세요!')
+
+            const { error } = await sb.from("Comments").insert({ text })   // ← 여기만 대문자 C!
+
+            if (error) {
+                console.error('댓글 달기 실패:', error)
+                alert('댓글 달기 실패... 콘솔 확인해 주세요')
+                return
+            }
+
+            commentInput.value = ''
+            loadComments()
+        }
+
+        async function vote(id, type) {
+            const field = type + 's'
+            const { error } = await sb
+                .from("Comments")        // ← 여기만 대문자 C!
+                .update({ [field]: sb.fn.increment(1) })
+                .eq('id', id)
+
+            if (error) console.error('투표 실패:', error)
+            else loadComments()
+        }
+
+        // 실시간 구독
+        sb.channel('Comments')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'Comments' }, () => {  // ← 여기만 대문자 C!
+                loadComments()
+            })
+            .subscribe()
+
+        loadComments()
+    </script>
+</body>
+</html>
