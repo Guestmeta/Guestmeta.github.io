@@ -1,0 +1,93 @@
+<!-- 1. Supabase CDN 추가 (head나 body 아무곳에나) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+// 2. 당신 Supabase 키 붙여넣기 (아까 복사한 거!)
+const supabaseUrl = 'https://zdpyawhuzidizdlpszvp.supabase.co'  // ← 여기
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkcHlhd2h1emlkaXpkbHBzenZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzODc3NzAsImV4cCI6MjA3ODk2Mzc3MH0.kKlQ9j4SZHBbVWXIW9QJFraCq8n3eojWXJWaqrRmxMo'  // ← 여기
+
+const supabase = Supabase.createClient(supabaseUrl, supabaseAnonKey)
+
+const commentList = document.getElementById('commentList')
+const commentInput = document.getElementById('commentInput')
+
+// 실시간 댓글 불러오기 (자동 갱신!)
+async function loadComments() {
+  const { data: comments } = await supabase
+    .from('comments')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  commentList.innerHTML = ''
+  comments.forEach((c, i) => {
+    const div = document.createElement('div')
+    div.className = 'comment'
+    div.innerHTML = `
+      <p><strong>익명${i + 1}</strong>: ${c.text.replace(/\n/g, '<br>')}</p>
+      <button class="delete-btn" onclick="deleteComment(${c.id})">삭제</button>
+      <div class="comment-meta">
+        <span>${new Date(c.created_at).toLocaleString('ko-KR')}</span>
+        <div class="comment-actions">
+          <button onclick="vote(${c.id}, 'like')">좋아요 <span class="like-count">${c.likes || 0}</span></button>
+          <button onclick="vote(${c.id}, 'dislike')">싫어요 <span class="dislike-count">${c.dislikes || 0}</span></button>
+        </div>
+      </div>
+    `
+    commentList.appendChild(div)
+  })
+}
+
+// 댓글 달기
+async function addComment() {
+  const text = commentInput.value.trim()
+  if (!text) return alert('댓글을 입력해주세요!')
+  
+  await supabase
+    .from('comments')
+    .insert({
+      text: text,
+      likes: 0,
+      dislikes: 0
+    })
+  
+  commentInput.value = ''
+  loadComments()
+}
+
+// 좋아요/싫어요
+async function vote(id, type) {
+  await supabase
+    .from('comments')
+    .update({
+      [type + 's']: supabase.rpc('increment', { column_name: type + 's', row_id: id })
+      // 간단하게 아래처럼 해도 됨
+    })
+    .eq('id', id)
+    
+  // 더 쉬운 방법 (직접 증가)
+  const { data } = await supabase.from('comments').select(type + 's').eq('id', id)
+  const current = data[0][type + 's'] || 0
+  await supabase.from('comments').update({ [type + 's']: current + 1 }).eq('id', id)
+  
+  loadComments()
+}
+
+// 삭제
+async function deleteComment(id) {
+  if (confirm('정말 삭제하시겠어요?')) {
+    await supabase.from('comments').delete().eq('id', id)
+    loadComments()
+  }
+}
+
+// 실시간 구독 (누가 댓글 달면 바로 보임!!)
+supabase
+  .channel('public:comments')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, payload => {
+    loadComments()
+  })
+  .subscribe()
+
+// 처음 로드
+loadComments()
+</script>
