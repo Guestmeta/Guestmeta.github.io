@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>목포 알리미 - 댓글 (Firebase 통합)</title>
+<style>
+  /* 기존 스타일 유지 + 간단한 패널 스타일 */
+  @font-face {
+    font-family: 'ChangwonDangamRound';
+    src: url('./fonts/ChangwonDangamRound.ttf') format('truetype');
+    font-weight: normal; font-style: normal; font-display: swap;
+  }
+  body { font-family: 'ChangwonDangamRound','Noto Sans KR',sans-serif!important; background: linear-gradient(to bottom,#e0f7fa,#ffffff); color:#333; line-height:1.7; margin:0; }
+  header{ background:rgba(255,255,255,0.95); padding:20px 24px; position:sticky; top:0; z-index:10; display:flex; align-items:center; justify-content:space-between; box-shadow:0 4px 12px rgba(0,0,0,0.08); }
+  .main-logo { font-size:20px; color:#00bcd4; font-weight:700; }
+  .controls { display:flex; gap:10px; align-items:center; }
+  .controls input[type="text"] { padding:6px 10px; border-radius:8px; border:1px solid #ccc; }
+  .controls button { padding:6px 10px; border-radius:8px; border:none; background:#00bcd4; color:white; cursor:pointer; }
+  main { max-width:1000px; margin:28px auto; padding:20px; }
+  .hero { text-align:center; padding:40px; background: url('./images/mokpo-bridge.jpg') center/cover no-repeat; border-radius:12px; color:white; margin-bottom:20px; }
+  section { background:white; padding:20px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,0.08); }
+  .comment-form textarea { width:100%; padding:12px; border-radius:8px; border:2px solid #00bcd4; resize:vertical; min-height:80px; font-size:15px; }
+  .comment-form .row { display:flex; gap:10px; margin-top:8px; }
+  .comment-list { margin-top:16px; }
+  .comment { background:#f8fdff; padding:14px; border-radius:10px; margin-bottom:12px; border-left:4px solid #00bcd4; position:relative; }
+  .meta { font-size:12px; color:#666; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:8px; }
+  .actions button { background:none; border:none; cursor:pointer; margin-left:8px; font-size:14px; }
+  .delete-btn { position:absolute; right:8px; top:8px; background:#ff4081; color:white; border:none; padding:6px 8px; border-radius:8px; cursor:pointer; font-size:12px; }
+  .admin-panel { margin-left:10px; }
+  .small { font-size:13px; color:#555; }
+</style>
+</head>
+<body>
+<header>
+  <div class="main-logo">📢목포 알리미</div>
+  <div class="controls">
+    <label class="small">닉네임: <input id="nicknameInput" type="text" placeholder="닉네임 설정 (저장됨)" /></label>
+    <button id="saveNickBtn">저장</button>
+    <button id="openAdminBtn">관리자</button>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>바다 내음 가득한 도시, 목포</h1>
+    <p>신선한 해산물과 아름다운 항구, 낭만이 가득한 여행지</p>
+  </div>
+
+  <section>
+    <h2>🌉목포 근대역사관 후기 & 댓글</h2>
+
+    <div class="comment-section">
+      <div class="comment-form">
+        <textarea id="commentInput" placeholder="여기에 후기를 남겨주세요..."></textarea>
+        <div class="row">
+          <button id="postCommentBtn">⌨️댓글 달기</button>
+          <span class="small">닉네임은 오른쪽 상단에서 설정하세요. (기본: 익명)</span>
+        </div>
+      </div>
+
+      <div class="comment-list" id="commentList"></div>
+    </div>
+  </section>
+</main>
+
+<!-- 관리자 모달(간단) -->
+<div id="adminModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
+  <div style="background:white; padding:18px; border-radius:8px; width:360px;">
+    <h3>관리자 패널</h3>
+    <div style="margin-bottom:8px;">
+      <input id="adminPassInput" type="password" placeholder="관리자 비밀번호 입력/설정" style="width:100%; padding:8px; border-radius:6px; border:1px solid #ccc;" />
+    </div>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button id="adminSetBtn">비밀번호 설정(없을 시)</button>
+      <button id="adminLoginBtn">로그인</button>
+      <button id="adminCloseBtn">닫기</button>
+    </div>
+    <div id="adminPanelInner" style="display:none; margin-top:12px;">
+      <p class="small">관리자 권한: 모든 댓글 수정/삭제 가능</p>
+      <button id="exportDataBtn">댓글 JSON 내보내기</button>
+      <button id="clearAllBtn" style="background:#ff4081; color:white;">모두 삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase compat scripts (v9 compat) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+/* -----------------------
+  Firebase 설정 — 여기에 본인 프로젝트 값 넣기
+  (Firebase 콘솔에서 웹앱 등록 후 발급된 config 복사)
+------------------------*/
+const firebaseConfig = {
+  apiKey: "AIzaSyAYpl_9x-JKIY8HSrZE19Qmxn7rwxztRTQ",
+  authDomain: "project-c9185.firebaseapp.com",
+  databaseURL: "https://project-c9185-default-rtdb.firebaseio.com",
+  projectId: "project-c9185",
+  storageBucket: "project-c9185.firebasestorage.app",
+  messagingSenderId: "612385081336",
+  appId: "1:612385081336:web:d74353664ae69d1c95380d",
+  measurementId: "G-TB70HV7Q8W"
+};
+
+
+/* 초기화 */
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* -----------------------
+  유틸: SHA-256 해시 (hex)
+------------------------*/
+async function sha256hex(str) {
+  const enc = new TextEncoder().encode(str);
+  const hash = await crypto.subtle.digest('SHA-256', enc);
+  const arr = Array.from(new Uint8Array(hash));
+  return arr.map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+/* -----------------------
+  IP 얻기 (공인 IP) — ipify 사용
+  실패 시 null 반환
+------------------------*/
+async function getPublicIP() {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json');
+    if (!r.ok) throw new Error('ip fetch failed');
+    const j = await r.json();
+    return j.ip;
+  } catch (e) {
+    console.warn('IP fetch failed', e);
+    return null;
+  }
+}
+
+/* -----------------------
+  사용자 식별자 생성
+  - localDeviceId: 기기 로컬 저장(UUID)
+  - ipHash: 공인IP 해시(가능한 경우)
+  - authorId = sha256(ipHash + localDeviceId) (ipHash가 null이면 localDeviceId 기반)
+------------------------*/
+function getOrCreateLocalId() {
+  let id = localStorage.getItem('mokpo_localDeviceId');
+  if (!id) {
+    id = 'dev-' + Math.random().toString(36).slice(2,10);
+    localStorage.setItem('mokpo_localDeviceId', id);
+  }
+  return id;
+}
+
+let userContext = {
+  localId: getOrCreateLocalId(),
+  ip: null,
+  ipHash: null,
+  authorId: null,
+  nickname: localStorage.getItem('mokpo_nickname') || ''
+};
+
+/* 초기화 비동기 작업: IP 가져오고 해시 계산 */
+(async () => {
+  const ip = await getPublicIP();
+  userContext.ip = ip;
+  if (ip) {
+    userContext.ipHash = await sha256hex(ip);
+    userContext.authorId = await sha256hex(userContext.ipHash + userContext.localId);
+  } else {
+    userContext.ipHash = null;
+    userContext.authorId = await sha256hex(userContext.localId);
+  }
+  // 닉네임 UI 반영
+  document.getElementById('nicknameInput').value = userContext.nickname;
+})();
+
+/* -----------------------
+  간단한 욕설 필터 (단어만 샘플)
+------------------------*/
+const badWords = ['씨발','병신','자지']; // 실제로 차단할 단어를 여기에 추가하세요
+function sanitizeText(text) {
+  let t = text;
+  badWords.forEach(w => {
+    if (!w) return;
+    const regex = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'ig');
+    t = t.replace(regex, '***');
+  });
+  return t;
+}
+
+/* -----------------------
+  DOM 레퍼런스 및 이벤트
+------------------------*/
+const commentInput = document.getElementById('commentInput');
+const postCommentBtn = document.getElementById('postCommentBtn');
+const commentList = document.getElementById('commentList');
+const nicknameInput = document.getElementById('nicknameInput');
+const saveNickBtn = document.getElementById('saveNickBtn');
+
+postCommentBtn.addEventListener('click', addComment);
+saveNickBtn.addEventListener('click', () => {
+  const v = nicknameInput.value.trim();
+  if (v.length > 30) return alert('닉네임은 30자 이하로 해주세요.');
+  userContext.nickname = v || '익명';
+  localStorage.setItem('mokpo_nickname', userContext.nickname);
+  alert('닉네임 저장됨: ' + userContext.nickname);
+});
+
+/* -----------------------
+  댓글 추가
+------------------------*/
+async function addComment() {
+  const raw = commentInput.value.trim();
+  if (!raw) return alert('댓글을 입력하세요.');
+  // 필터링
+  const safe = sanitizeText(raw);
+  const nickname = userContext.nickname || '익명';
+
+  // 작성자 id (authorId) 보존
+  const authorId = userContext.authorId || await sha256hex(getOrCreateLocalId());
+
+  const newRef = db.ref('comments').push();
+  await newRef.set({
+    text: safe,
+    nickname: nickname,
+    date: new Date().toISOString(),
+    likes: 0,
+    dislikes: 0,
+    voters: {}, // { ipHash: "like"|"dislike" }
+    authorId: authorId
+  });
+
+  commentInput.value = '';
+}
+
+/* -----------------------
+  댓글 목록 실시간 로드
+------------------------*/
+function createCommentElement(id, data, idx) {
+  const div = document.createElement('div');
+  div.className = 'comment';
+  div.dataset.id = id;
+
+  const textHtml = `<p><strong>${escapeHtml(data.nickname || '익명')}</strong>: ${escapeHtml(data.text).replace(/\n/g,'<br>')}</p>`;
+  const metaTime = new Date(data.date).toLocaleString('ko-KR');
+  const likeCount = data.likes || 0;
+  const dislikeCount = data.dislikes || 0;
+
+  // 버튼 disabled 여부 계산 (owner or admin allow edit)
+  const isOwner = (data.authorId && userContext.authorId && data.authorId === userContext.authorId);
+  const controls = `
+    <div class="meta">
+      <span>${metaTime}</span>
+      <div class="actions">
+        <button onclick="handleVote('${id}', 'like')">👍<span class="like-count"> ${likeCount}</span></button>
+        <button onclick="handleVote('${id}', 'dislike')">👎<span class="dislike-count"> ${dislikeCount}</span></button>
+        ${isOwner ? `<button onclick="editCommentPrompt('${id}')">수정</button>` : ''}
+        <button onclick="tryDelete('${id}')">삭제</button>
+      </div>
+    </div>
+  `;
+
+  div.innerHTML = textHtml + controls;
+  return div;
+}
+
+db.ref('comments').on('value', (snap) => {
+  const obj = snap.val() || {};
+  // 안정적인 순서를 위해 날짜 기준 정렬
+  const entries = Object.entries(obj).sort((a,b) => {
+    const da = new Date(a[1].date).getTime();
+    const dbt = new Date(b[1].date).getTime();
+    return dbt - da; // 최신순
+  });
+
+  commentList.innerHTML = '';
+  entries.forEach(([id, data], idx) => {
+    const el = createCommentElement(id, data, idx);
+    commentList.appendChild(el);
+  });
+});
+
+/* -----------------------
+  투표 처리 (IP 기반 1회)
+------------------------*/
+async function handleVote(id, type) {
+  // get ipHash or fallback
+  const ipHash = userContext.ipHash;
+  const localKey = userContext.localId;
+  const voterKey = ipHash ? await sha256hex(ipHash) : await sha256hex(localKey);
+
+  const ref = db.ref('comments/' + id);
+  ref.transaction(current => {
+    if (!current) return current;
+    current.voters = current.voters || {};
+    const prev = current.voters[voterKey];
+
+    // 같은 투표 반복 누르면 취소
+    if (prev === type) {
+      // cancel
+      if (type === 'like') current.likes = Math.max(0, (current.likes||0) - 1);
+      else current.dislikes = Math.max(0, (current.dislikes||0) - 1);
+      delete current.voters[voterKey];
+    } else {
+      // 다른 쪽으로 바꾸거나 처음 투표
+      if (prev === 'like') current.likes = Math.max(0, (current.likes||0) - 1);
+      if (prev === 'dislike') current.dislikes = Math.max(0, (current.dislikes||0) - 1);
+
+      if (type === 'like') current.likes = (current.likes||0) + 1;
+      else current.dislikes = (current.dislikes||0) + 1;
+
+      current.voters[voterKey] = type;
+    }
+    return current;
+  }, (err, committed, snapshot) => {
+    if (err) console.error('vote transaction failed', err);
+  });
+}
+
+/* -----------------------
+  댓글 삭제 시도 (작성자 또는 관리자만)
+------------------------*/
+async function tryDelete(id) {
+  const ref = db.ref('comments/' + id);
+  const snap = await ref.once('value');
+  const data = snap.val();
+  if (!data) return alert('댓글이 없습니다.');
+
+  // 관리자면 바로 삭제
+  if (isAdmin) {
+    if (confirm('관리자 권한으로 이 댓글을 삭제합니다. 계속할까요?')) {
+      ref.remove();
+    }
+    return;
+  }
+
+  // 작성자 확인
+  if (data.authorId && userContext.authorId && data.authorId === userContext.authorId) {
+    if (confirm('정말 삭제하시겠습니까?')) ref.remove();
+  } else {
+    alert('삭제 권한이 없습니다. (작성자 또는 관리자만 삭제 가능)');
+  }
+}
+
+/* -----------------------
+  댓글 수정 (프롬프트 기반)
+------------------------*/
+async function editCommentPrompt(id) {
+  const ref = db.ref('comments/' + id);
+  const snap = await ref.once('value');
+  const data = snap.val();
+  if (!data) return alert('댓글을 찾을 수 없습니다.');
+
+  // 권한 확인
+  if (!(isAdmin || (data.authorId && userContext.authorId && data.authorId === userContext.authorId))) {
+    return alert('수정 권한이 없습니다.');
+  }
+
+  const newText = prompt('댓글을 수정하세요:', data.text);
+  if (newText === null) return;
+  const safe = sanitizeText(newText.trim());
+  if (!safe) return alert('빈 댓글은 허용되지 않습니다.');
+
+  await ref.update({ text: safe, editedAt: new Date().toISOString() });
+}
+
+/* -----------------------
+  단순한 HTML 이스케이프
+------------------------*/
+function escapeHtml(s) {
+  if (!s) return '';
+  return s.replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]; });
+}
+
+/* -----------------------
+  관리자 기능
+  - 비밀번호를 DB에 저장된 해시와 비교
+  - 경로: /admin/passHash
+  - 최초 설정 시 빈 값이면 set으로 저장
+------------------------*/
+let isAdmin = false;
+
+const adminModal = document.getElementById('adminModal');
+document.getElementById('openAdminBtn').addEventListener('click', () => adminModal.style.display = 'flex');
+document.getElementById('adminCloseBtn').addEventListener('click', () => adminModal.style.display = 'none');
+
+document.getElementById('adminSetBtn').addEventListener('click', async () => {
+  const pass = document.getElementById('adminPassInput').value;
+  if (!pass) return alert('비밀번호를 입력하세요.');
+  const passRef = db.ref('admin/passHash');
+  const snap = await passRef.once('value');
+  if (snap.exists()) return alert('이미 비밀번호가 설정되어 있습니다. 로그인 해주세요.');
+  const h = await sha256hex(pass);
+  await passRef.set(h);
+  alert('관리자 비밀번호가 설정되었습니다. 이제 로그인하세요.');
+});
+
+document.getElementById('adminLoginBtn').addEventListener('click', async () => {
+  const pass = document.getElementById('adminPassInput').value;
+  if (!pass) return alert('비밀번호를 입력하세요.');
+  const passRef = db.ref('admin/passHash');
+  const snap = await passRef.once('value');
+  if (!snap.exists()) return alert('관리자 비밀번호가 설정되어 있지 않습니다. 먼저 설정하세요.');
+  const storedHash = snap.val();
+  const h = await sha256hex(pass);
+  if (h === storedHash) {
+    isAdmin = true;
+    alert('관리자 로그인 성공');
+    document.getElementById('adminPanelInner').style.display = 'block';
+  } else {
+    alert('비밀번호가 틀렸습니다.');
+  }
+});
+
+/* 관리자: 댓글 JSON 내보내기 */
+document.getElementById('exportDataBtn').addEventListener('click', async () => {
+  if (!isAdmin) return alert('관리자 로그인 필요');
+  const snap = await db.ref('comments').once('value');
+  const data = snap.val() || {};
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'comments.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+/* 관리자: 전체 삭제 */
+document.getElementById('clearAllBtn').addEventListener('click', async () => {
+  if (!isAdmin) return alert('관리자 로그인 필요');
+  if (!confirm('정말 모든 댓글을 삭제합니까?')) return;
+  await db.ref('comments').remove();
+  alert('모두 삭제됨');
+});
+
+/* -----------------------
+  초깃값: 닉네임과 버튼 이벤트
+------------------------*/
+document.addEventListener('DOMContentLoaded', () => {
+  // 닉네임 초기값
+  document.getElementById('nicknameInput').value = userContext.nickname || '';
+});
+
+/* -----------------------
+  window 전역 함수 노출 (onclick에서 호출되도록)
+------------------------*/
+window.handleVote = handleVote;
+window.tryDelete = tryDelete;
+window.editCommentPrompt = editCommentPrompt;
+
+</script>
+</body>
+</html>
