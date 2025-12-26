@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>목포 알리미</title>
+<style>
+  @font-face {
+    font-family: 'ChangwonDangamRound';
+    src: url('./fonts/ChangwonDangamRound.ttf') format('truetype');
+    font-weight: normal; font-style: normal; font-display: swap;
+  }
+  body { font-family: 'ChangwonDangamRound','Noto Sans KR',sans-serif!important; background: linear-gradient(to bottom,#e0f7fa,#ffffff); color:#333; line-height:1.7; margin:0; }
+  header{ background:rgba(255,255,255,0.95); padding:20px 24px; position:sticky; top:0; z-index:10; box-shadow:0 4px 12px rgba(0,0,0,0.08); }
+  .main-logo { font-size:20px; color:#00bcd4; font-weight:700; margin-right:auto; }
+  .tabs { display:flex; justify-content:center; gap:25px; flex-wrap:wrap;}
+  .tab-btn { padding:6px 12px; background:#e0f7fa; color:#333; border:none; border-radius:30px; font-size:18px; cursor:pointer; transition:all 0.3s; }
+  .tab-btn.active { background:#00bcd4; color:white; }
+  .controls { display:flex; gap:10px; align-items:center; margin-left:auto; }
+  .controls input[type="text"] { padding:6px 10px; border-radius:8px; border:1px solid #ccc; }
+  .controls button { padding:6px 10px; border-radius:8px; border:none; background:#00bcd4; color:white; cursor:pointer; }
+  main { max-width:1000px; margin:28px auto; padding:20px; }
+  .hero { text-align:center; padding:40px; background: url('./images/mokpo-bridge.jpg') center/cover no-repeat; border-radius:12px; color:white; margin-bottom:40px; }
+  .aibox { padding:40px; border-radius: 12px; margin-bottom: 30px; background-color: white; box-shadow:0 6px 20px rgba(0,0,0,0.08); align-items: center; text-align: center;}
+  .tab-content { display:none; }
+  .tab-content.active { display:block; animation:slideDown 0.6s ease-out; }
+  @keyframes slideDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+  .places-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:20px; }
+  .place-card { background:white; border-radius:12px; overflow:hidden; box-shadow:0 6px 20px rgba(0,0,0,0.08); transition:transform 0.3s; }
+  .place-card:hover { transform:translateY(-8px); }
+  .place-card img { width:100%; height:200px; object-fit:cover; }
+  .place-info { padding:16px; }
+  .place-info h3 { margin:0 0 8px; color:#00bcd4; }
+  .place-info p { margin:0; font-size:14px; color:#555; }
+  .comment-form textarea { width:100%; padding:12px; border-radius:8px; border:2px solid #00bcd4; resize:vertical; min-height:80px; font-size:15px; }
+  .comment-form .row { display:flex; gap:10px; margin-top:8px; align-items:center; }
+  .comment-list { margin-top:16px; }
+  .comment { background:#f8fdff; padding:14px; border-radius:10px; margin-bottom:12px; border-left:4px solid #00bcd4; position:relative; }
+  .meta { font-size:12px; color:#666; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:8px; }
+  .actions button { background:none; border:none; cursor:pointer; margin-left:8px; font-size:14px; }
+  .small { font-size:13px; color:#555; }
+</style>
+</head>
+<body>
+<header>
+  <div class="main-logo">📢목포 알리미</div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="ai_tap">AI</button>
+    <button class="tab-btn" data-tab="attractions">명소</button>
+    <button class="tab-btn" data-tab="restaurants">맛집</button>
+    <button class="tab-btn" data-tab="accommodations">숙소</button>
+  </div>
+  <div class="controls">
+    <label class="small">닉네임: <input id="nicknameInput" type="text" placeholder="닉네임 설정 (저장됨)" /></label>
+    <button id="saveNickBtn">저장</button>
+    <button id="openAdminBtn">관리자</button>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>바다 내음 가득한 도시, 목포</h1>
+    <p>신선한 해산물과 아름다운 항구, 낭만이 가득한 여행지</p>
+  </div>
+
+  <div id="ai_tap" class="tab-content active">
+  <div class="aibox">
+    <p style="font-size: 20px; font-weight: bold;">AI에게 궁금한 것을 물어보세요!</p>
+    <img src="images/give-kameko.gif" alt="AI" style="border-radius: 10px; width: 50%; height: auto; margin: 20px 0;">
+    <p>목포 여행, 명소, 맛집, 숙소 등 뭐든 물어보세요!</p>
+    <p style="font-weight: bold;">예시) 2박 3일 목포 여행 코스 추천, 유달산 가는 법, 최고의 민어 맛집은?</p>
+
+    <div style="margin-top: 30px; max-width: 800px; margin-left: auto; margin-right: auto;">
+      <div id="aiChatLog" style="height: 400px; overflow-y: auto; background: #f8fdff; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e0f2f1; font-size: 15px;">
+        <p style="text-align:center; color:#888; font-style:italic;">AI와 대화를 시작해보세요! 아래에 질문 입력 → 엔터</p>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <input type="text" id="aiInput" placeholder="여기에 질문 입력..." style="flex:1; padding:14px; border-radius:12px; border:2px solid #00bcd4; font-size:16px;" autocomplete="off" />
+        <button id="aiSendBtn" style="padding:14px 24px; border-radius:12px; border:none; background:#00bcd4; color:white; font-weight:600; cursor:pointer; font-size:16px;">전송</button>
+      </div>
+      <p style="font-size:13px; color:#888; margin-top:10px; text-align:center;">로컬 AI (Ollama)로 동작 중 • 개인정보 유출 없음</p>
+    </div>
+  </div>
+</div>
+  <div id="attractions" class="tab-content">
+    <h2 style="text-align:center; margin-bottom:30px;">🌉 목포 명소</h2>
+    <div class="full-width-grid">
+      <div class="places-grid">
+        <div class="place-card">
+          <img src="images/Mokpo_San.webp" alt="유달산">
+          <div class="place-info">
+            <h3>유달산</h3>
+            <p>목포의 상징적인 산으로 일출과 야경이 아름답습니다. 정상에서 다도해를 한눈에 볼 수 있어요.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/MOC.jpg" alt="목포 해상케이블카">
+          <div class="place-info">
+            <h3>목포 해상케이블카</h3>
+            <p>아시아 최장 해상 케이블카로 유달산과 고하도를 연결하며 바다 위를 날아가는 듯한 경험을 선사합니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/history_build.jpg" alt="목포 근대역사관">
+          <div class="place-info">
+            <h3>목포 근대역사관</h3>
+            <p>일제강점기 건축물로 목포의 근대 역사를 생생히 느낄 수 있는 곳입니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Godbawi.jpg" alt="갓바위">
+          <div class="place-info">
+            <h3>갓바위</h3>
+            <p>천연기념물 제500호로 지정된 기암괴석으로, 해상 보행교를 통해 편리하게 관람하며 바다 풍경을 즐길 수 있습니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="margin: 10px;"></p>
+    <div class="full-width-grid">
+      <div class="places-grid">
+        <div class="place-card">
+          <img src="images/town.jpg" alt="평화광장">
+          <div class="place-info">
+            <h3>평화광장</h3>
+            <p>목포시 하당신도심의 해변에 위치한 대표적인 친수 공간으로, 산책로와 다양한 편의시설이 갖춰져 있습니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Sihwagolmok.jpg" alt="서산동 시화골목길">
+          <div class="place-info">
+            <h3>서산동 시화골목길</h3>
+            <p>영화 '1987' 촬영지로 유명한 골목길로, 벽화와 옛 정취를 느낄 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Mokpojin.jpg" alt="목포진">
+          <div class="place-info">
+            <h3>목포진</h3>
+            <p>목포의 옛 수군 진영이 있던 곳으로, 구도심을 한눈에 내려다볼 수 있는 전망이 훌륭합니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/DeaBandong.webp" alt="대반동">
+          <div class="place-info">
+            <h3>대반동</h3>
+            <p>목포대교와 해상케이블카를 배경으로 하는 아름다운 해안 명소입니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+
+  <div id="restaurants" class="tab-content">
+    <h2 style="text-align:center; margin-bottom:30px;">🍴 목포 맛집</h2>
+    <div class="full-width-grid">
+      <div class="places-grid">
+        <div class="place-card">
+          <img src="images/gougi.jpg" alt="만선식당">
+          <div class="place-info">
+            <h3>만선식당</h3>
+            <p>밴댕이회와 우럭간국, 송어회같은것이 유명합니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Honga_raman.png" alt="목포라면 홍어 라면">
+          <div class="place-info">
+            <h3>목포라면 홍어 라면</h3>
+            <p>홍어를 이용한 음식이 유명합니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Crap_soup.png" alt="목포 장터 식당">
+          <div class="place-info">
+            <h3>목포 장터 식당</h3>
+            <p>게살비빔밥과 꽃게살 등 꽃게를 이용한 음식이 유명합니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Nackgi.jpg" alt="목포 뜰채 식당">
+          <div class="place-info">
+            <h3>목포 뜰채 식당</h3>
+            <p>신선한 갈치로 만든 조림 요리가 유명한 현지 맛집입니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="margin: 10px;"></p>
+    <div class="full-width-grid">
+      <div class="places-grid">
+        <div class="place-card">
+          <img src="images/Tosamul.webp" alt="목포 해빔 식당">
+          <div class="place-info">
+            <h3>목포 해빔 식당</h3>
+            <p>꽃게살 해초 비빔밥 등과 같은 비빔밥 음식들이 유명합니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Atulie.webp" alt="아틀리에능소화">
+          <div class="place-info">
+            <h3>아틀리에능소화</h3>
+            <p>브런치와 치츠케이크가 유명합니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/DIJ.jpg" alt="덕인집">
+          <div class="place-info">
+            <h3>덕인집</h3>
+            <p>흑산 홍어 삼합과 홍어회 같은 홍어를 이용한 음식들이 유명합니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/GGOGI.jpg" alt="등대 식육 식당">
+          <div class="place-info">
+            <h3>등대 식육 식당</h3>
+            <p>생고기와 생 차돌박이 같은 음식이 유명합니다</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="accommodations" class="tab-content">
+    <h2 style="text-align:center; margin-bottom:30px;">🏨 목포 숙소</h2>
+    <div class="full-width-grid">
+      <div class="places-grid">
+        <div class="place-card">
+          <img src="images/Hotel Ed.png" alt="목포 호텔에디션스">
+          <div class="place-info">
+            <h3>목포 호텔에디션스</h3>
+            <p> 2025년 오픈된 신축 호텔로 깔끔하고 모던한 시설이며 관광,맛집,카페 접근성이 좋습니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/OStay.webp" alt="목포 오션스테이호텔">
+          <div class="place-info">
+            <h3>목포 오션스테이호텔</h3>
+            <p>바다 전망이 아름다운 고급 호텔로 커플 여행에 추천합니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Hery.jpg" alt="목포 프롬에이치 헤리티지호텔">
+          <div class="place-info">
+            <h3>목포 프롬에이치 헤리티지호텔</h3>
+            <p>후기 평점이 높고 깔끔한 객실을 제공하는 호텔입니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Yaja.jpg" alt="호텔야자 목포 평화광장점">
+          <div class="place-info">
+            <h3>호텔야자 목포 평화광장점</h3>
+            <p>합리적인 가격과 깔끔한 객실 평화광장과 바다분수,근대문화거리 접근이 용이해 관광 중심 여행에 적합합니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="margin: 10px;"></p>
+    <div class="full-width-grid">
+      <div class="places-grid">
+        <div class="place-card">
+          <img src="images/Dmer.jpg" alt="목포 호텔 드메르">
+          <div class="place-info">
+            <h3>목포 호텔 드메르</h3>
+            <p> 목포 시내 중심에 위치하고 있으며 관광과 맛집에 접근성이 좋습니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Hanokdec.jpg" alt="백년한옥대청">
+          <div class="place-info">
+            <h3>백년한옥대청</h3>
+            <p>북교동 전통 한옥 숙소이며 문화 체험 여행에 적합합니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Stay_Carset.webp" alt="목포 스테이 카세트플레이어">
+          <div class="place-info">
+            <h3>목포 스테이 카세트플레이어</h3>
+            <p>감정적인 분위기를 원하는 사람들에게 추천합니다.</p>
+          </div>
+        </div>
+        <div class="place-card">
+          <img src="images/Brawn_dote.jpg" alt="목포 브라운도트호텔 목포갓바위점">
+          <div class="place-info">
+            <h3>목포 브라운도트호텔 목포갓바위점</h3>
+            <p>갓바위와 자연산박물관 인근에 있어 두곳에 대한 접근성이 높아 갓바위와 자연산박물관을 관광하기에 좋습니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section style="margin-top:60px;">
+    <h2 style="text-align:center;">💬 방문 후기 & 댓글</h2>
+    <div class="comment-form">
+      <textarea id="commentInput" placeholder="목포 여행 후기를 남겨주세요..."></textarea>
+      <div class="row">
+        <button id="postCommentBtn">⌨️댓글 달기</button>
+        <span class="small">닉네임은 오른쪽 상단에서 설정하세요. (기본: 익명)</span>
+      </div>
+    </div>
+    <div class="comment-list" id="commentList"></div>
+  </section>
+</main>
+
+<div id="adminModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
+  <div style="background:white; padding:18px; border-radius:8px; width:360px;">
+    <h3>관리자 패널</h3>
+    <div style="margin-bottom:8px;">
+      <input id="adminPassInput" type="password" placeholder="관리자 비밀번호 입력/설정" style="width:100%; padding:8px; border-radius:6px; border:1px solid #ccc;" />
+    </div>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button id="adminSetBtn">비밀번호 설정(없을 시)</button>
+      <button id="adminLoginBtn">로그인</button>
+      <button id="adminCloseBtn">닫기</button>
+    </div>
+    <div id="adminPanelInner" style="display:none; margin-top:12px;">
+      <p class="small">관리자 권한: 모든 댓글 수정/삭제 가능</p>
+      <button id="exportDataBtn">댓글 JSON 내보내기</button>
+      <button id="clearAllBtn" style="background:#ff4081; color:white;">모두 삭제</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAYpl_9x-JKIY8HSrZE19Qmxn7rwxztRTQ",
+  authDomain: "project-c9185.firebaseapp.com",
+  databaseURL: "https://project-c9185-default-rtdb.firebaseio.com",
+  projectId: "project-c9185",
+  storageBucket: "project-c9185.firebasestorage.app",
+  messagingSenderId: "612385081336",
+  appId: "1:612385081336:web:d74353664ae69d1c95380d",
+  measurementId: "G-TB70HV7Q8W"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+async function sha256hex(str) {
+  const enc = new TextEncoder().encode(str);
+  const hash = await crypto.subtle.digest('SHA-256', enc);
+  const arr = Array.from(new Uint8Array(hash));
+  return arr.map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function getPublicIP() {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json');
+    if (!r.ok) throw new Error('ip fetch failed');
+    const j = await r.json();
+    return j.ip;
+  } catch (e) {
+    console.warn('IP fetch failed', e);
+    return null;
+  }
+}
+
+function getOrCreateLocalId() {
+  let id = localStorage.getItem('mokpo_localDeviceId');
+  if (!id) {
+    id = 'dev-' + Math.random().toString(36).slice(2,10);
+    localStorage.setItem('mokpo_localDeviceId', id);
+  }
+  return id;
+}
+
+let userContext = {
+  localId: getOrCreateLocalId(),
+  ip: null,
+  ipHash: null,
+  authorId: null,
+  nickname: localStorage.getItem('mokpo_nickname') || ''
+};
+
+(async () => {
+  const ip = await getPublicIP();
+  userContext.ip = ip;
+  if (ip) {
+    userContext.ipHash = await sha256hex(ip);
+    userContext.authorId = await sha256hex(userContext.ipHash + userContext.localId);
+  } else {
+    userContext.ipHash = null;
+    userContext.authorId = await sha256hex(userContext.localId);
+  }
+  document.getElementById('nicknameInput').value = userContext.nickname;
+})();
+
+const badWords = ['씨발','병신','버러지']; 
+function sanitizeText(text) {
+  let t = text;
+  badWords.forEach(w => {
+    if (!w) return;
+    const regex = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'ig');
+    t = t.replace(regex, '***');
+  });
+  return t;
+}
+
+const commentInput = document.getElementById('commentInput');
+const postCommentBtn = document.getElementById('postCommentBtn');
+const commentList = document.getElementById('commentList');
+const nicknameInput = document.getElementById('nicknameInput');
+const saveNickBtn = document.getElementById('saveNickBtn');
+
+postCommentBtn.addEventListener('click', addComment);
+saveNickBtn.addEventListener('click', () => {
+  const v = nicknameInput.value.trim();
+  if (v.length > 30) return alert('닉네임은 30자 이하로 해주세요.');
+  userContext.nickname = v || '익명';
+  localStorage.setItem('mokpo_nickname', userContext.nickname);
+  alert('닉네임 저장됨: ' + userContext.nickname);
+});
+
+async function addComment() {
+  const raw = commentInput.value.trim();
+  if (!raw) return alert('댓글을 입력하세요.');
+  const safe = sanitizeText(raw);
+  const nickname = userContext.nickname || '익명';
+
+  const authorId = userContext.authorId || await sha256hex(getOrCreateLocalId());
+
+  const newRef = db.ref('comments').push();
+  await newRef.set({
+    text: safe,
+    nickname: nickname,
+    date: new Date().toISOString(),
+    likes: 0,
+    dislikes: 0,
+    voters: {},
+    authorId: authorId
+  });
+
+  commentInput.value = '';
+}
+
+function createCommentElement(id, data) {
+  const div = document.createElement('div');
+  div.className = 'comment';
+  div.dataset.id = id;
+
+  const textHtml = `<p><strong>${escapeHtml(data.nickname || '익명')}</strong>: ${escapeHtml(data.text).replace(/\n/g,'<br>')}</p>`;
+  const metaTime = new Date(data.date).toLocaleString('ko-KR');
+  const likeCount = data.likes || 0;
+  const dislikeCount = data.dislikes || 0;
+
+  const isOwner = (data.authorId && userContext.authorId && data.authorId === userContext.authorId);
+  const controls = `
+    <div class="meta">
+      <span>${metaTime}</span>
+      <div class="actions">
+        <button onclick="handleVote('${id}', 'like')">👍 ${likeCount}</button>
+        <button onclick="handleVote('${id}', 'dislike')">👎 ${dislikeCount}</button>
+        ${isOwner ? `<button onclick="editCommentPrompt('${id}')">수정</button>` : ''}
+        <button onclick="tryDelete('${id}')">삭제</button>
+      </div>
+    </div>
+  `;
+
+  div.innerHTML = textHtml + controls;
+  return div;
+}
+
+db.ref('comments').on('value', (snap) => {
+  const obj = snap.val() || {};
+  const entries = Object.entries(obj).sort((a,b) => new Date(b[1].date).getTime() - new Date(a[1].date).getTime());
+
+  commentList.innerHTML = '';
+  entries.forEach(([id, data]) => {
+    const el = createCommentElement(id, data);
+    commentList.appendChild(el);
+  });
+});
+
+async function handleVote(id, type) {
+  const ipHash = userContext.ipHash;
+  const localKey = userContext.localId;
+  const voterKey = ipHash ? await sha256hex(ipHash) : await sha256hex(localKey);
+
+  const ref = db.ref('comments/' + id);
+  ref.transaction(current => {
+    if (!current) return current;
+    current.voters = current.voters || {};
+    const prev = current.voters[voterKey];
+
+    if (prev === type) {
+      if (type === 'like') current.likes = Math.max(0, (current.likes||0) - 1);
+      else current.dislikes = Math.max(0, (current.dislikes||0) - 1);
+      delete current.voters[voterKey];
+    } else {
+      if (prev === 'like') current.likes = Math.max(0, (current.likes||0) - 1);
+      if (prev === 'dislike') current.dislikes = Math.max(0, (current.dislikes||0) - 1);
+
+      if (type === 'like') current.likes = (current.likes||0) + 1;
+      else current.dislikes = (current.dislikes||0) + 1;
+
+      current.voters[voterKey] = type;
+    }
+    return current;
+  });
+}
+
+async function tryDelete(id) {
+  const ref = db.ref('comments/' + id);
+  const snap = await ref.once('value');
+  const data = snap.val();
+  if (!data) return alert('댓글이 없습니다.');
+
+  if (isAdmin) {
+    if (confirm('관리자 권한으로 이 댓글을 삭제합니다. 계속할까요?')) {
+      ref.remove();
+    }
+    return;
+  }
+
+  if (data.authorId && userContext.authorId && data.authorId === userContext.authorId) {
+    if (confirm('정말 삭제하시겠습니까?')) ref.remove();
+  } else {
+    alert('삭제 권한이 없습니다. (작성자 또는 관리자만 삭제 가능)');
+  }
+}
+
+async function editCommentPrompt(id) {
+  const ref = db.ref('comments/' + id);
+  const snap = await ref.once('value');
+  const data = snap.val();
+  if (!data) return alert('댓글을 찾을 수 없습니다.');
+
+  if (!(isAdmin || (data.authorId && userContext.authorId && data.authorId === userContext.authorId))) {
+    return alert('수정 권한이 없습니다.');
+  }
+
+  const newText = prompt('댓글을 수정하세요:', data.text);
+  if (newText === null) return;
+  const safe = sanitizeText(newText.trim());
+  if (!safe) return alert('빈 댓글은 허용되지 않습니다.');
+
+  await ref.update({ text: safe, editedAt: new Date().toISOString() });
+}
+
+function escapeHtml(s) {
+  if (!s) return '';
+  return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]);
+}
+
+let isAdmin = false;
+
+const adminModal = document.getElementById('adminModal');
+document.getElementById('openAdminBtn').addEventListener('click', () => adminModal.style.display = 'flex');
+document.getElementById('adminCloseBtn').addEventListener('click', () => adminModal.style.display = 'none');
+
+document.getElementById('adminSetBtn').addEventListener('click', async () => {
+  const pass = document.getElementById('adminPassInput').value;
+  if (!pass) return alert('비밀번호를 입력하세요.');
+  const passRef = db.ref('admin/passHash');
+  const snap = await passRef.once('value');
+  if (snap.exists()) return alert('이미 비밀번호가 설정되어 있습니다. 로그인 해주세요.');
+  const h = await sha256hex(pass);
+  await passRef.set(h);
+  alert('관리자 비밀번호가 설정되었습니다. 이제 로그인하세요.');
+});
+
+document.getElementById('adminLoginBtn').addEventListener('click', async () => {
+  const pass = document.getElementById('adminPassInput').value;
+  if (!pass) return alert('비밀번호를 입력하세요.');
+  const passRef = db.ref('admin/passHash');
+  const snap = await passRef.once('value');
+  if (!snap.exists()) return alert('관리자 비밀번호가 설정되어 있지 않습니다. 먼저 설정하세요.');
+  const storedHash = snap.val();
+  const h = await sha256hex(pass);
+  if (h === storedHash) {
+    isAdmin = true;
+    alert('관리자 로그인 성공');
+    document.getElementById('adminPanelInner').style.display = 'block';
+  } else {
+    alert('비밀번호가 틀렸습니다.');
+  }
+});
+
+document.getElementById('exportDataBtn').addEventListener('click', async () => {
+  if (!isAdmin) return alert('관리자 로그인 필요');
+  const snap = await db.ref('comments').once('value');
+  const data = snap.val() || {};
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'comments.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('clearAllBtn').addEventListener('click', async () => {
+  if (!isAdmin) return alert('관리자 로그인 필요');
+  if (!confirm('정말 모든 댓글을 삭제합니까?')) return;
+  await db.ref('comments').remove();
+  alert('모두 삭제됨');
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('nicknameInput').value = userContext.nickname || '';
+
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      tabContents.forEach(c => c.classList.remove('active'));
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+});
+
+window.handleVote = handleVote;
+window.tryDelete = tryDelete;
+window.editCommentPrompt = editCommentPrompt;
+
+const aiInput = document.getElementById('aiInput');
+const aiSendBtn = document.getElementById('aiSendBtn');
+const aiChatLog = document.getElementById('aiChatLog');
+
+async function callOllama(prompt) {
+  const loadingMsg = document.createElement('div');
+  loadingMsg.textContent = 'AI가 생각 중입니다...';
+  loadingMsg.style.color = '#666';
+  loadingMsg.style.fontStyle = 'italic';
+  loadingMsg.style.margin = '10px 0';
+  aiChatLog.appendChild(loadingMsg);
+  aiChatLog.scrollTop = aiChatLog.scrollHeight;
+
+  try {
+    const response = await fetch('http://localhost:11434/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gemma2:9b',
+        prompt: prompt,
+        stream: false,
+        options: {
+          temperature: 0.7
+        },
+        system: [
+          "너는 목포 여행 전문 한국어 AI 가이드야",
+
+          "모든 답변은 오직 한국어로만 해. 영어는 절대 쓰지 마.",
+          "",
+          "목포에 대한 지식은 아래 내용을 완벽히 학습해 둬. (2025년 12월 기준)",
+          "",
+          "### 목포 기본 소개",
+          "- 목포는 전라남도 서남해안의 항구 도시로 다도해의 아름다운 풍경, 신선한 해산물, 근대 역사가 어우러진 낭만적인 여행지야.",
+          "- 지금(2025년 12월)은 겨울이라 해산물이 가장 통통하고 맛있는 시즌이야. 홍어, 민어, 꽃게가 최고.",
+          "",
+          "### 주요 명소",
+          "- 유달산: 목포의 상징. 야경·일출·일몰 모두 예뻐.",
+          "- 목포 해상케이블카: 국내 최장, 크리스탈 캐빈 스릴 만점, 밤 야경 로맨틱.",
+          "- 갓바위 & 해상보행교: 사진 명소.",
+          "- 평화광장 & 춤추는 바다분수: 겨울 밤 분수 쇼 낭만적.",
+          "- 근대역사관 + 시화골목: 감성 산책.",
+          "- 고하도: 케이블카 타고 가는 섬, 전망대 최고.",
+          "- 추가: 자연사박물관, 해양유물전시관, 삼학도, 대반동 일몰.",
+          "",
+          "### 맛집",
+          "- 덕인집: 홍어 삼합 최고.",
+          "- 영란횟집·청자횟집: 민어회 코스.",
+          "- 뜰채식당: 갈치조림.",
+          "- 만선식당: 생선회.",
+          "- 장터식당·해빔식당: 꽃게 요리.",
+          "- 낙지: 연희네포차, 독천식당.",
+          "",
+          "### 숙소",
+          "- 오션뷰: 오션스테이호텔, 폰타나비치, 호텔 드메르.",
+          "- 가성비: 호텔야자 평화광장점, 브라운도트.",
+          "- 감성 한옥: 백년한옥대청, 유정한옥 게스트하우스.",
+          "- 모던 신축: 호텔에디션스, 호텔현대 바이 라한 목포.",
+          "",
+          "### 여행 팁",
+          "- 겨울엔 따뜻한 국물 요리와 야경이 최고.",
+          "- 뚜벅이 여행 가능, 버스·택시 편리.",
+          "",
+          "최종 규칙:",
+          "- 문장 항상 자연스럽고 완전하게!"
+        ].join('\n')
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Ollama 서버에 연결할 수 없습니다.');
+    }
+
+    const data = await response.json();
+    return data.response || '답변이 없어요.';
+  } catch (error) {
+    return '오류: ' + error.message + '\n터미널에서 Ollama가 실행 중인지 확인해주세요!';
+  } finally {
+    if (loadingMsg.parentNode) {
+      loadingMsg.parentNode.removeChild(loadingMsg);
+    }
+  }
+}
+
+async function sendAIQuestion() {
+  const question = aiInput.value.trim();
+  if (!question) return;
+
+  const userMsg = document.createElement('div');
+  userMsg.style.marginBottom = '15px';
+  userMsg.style.textAlign = 'right';
+  userMsg.innerHTML = `<strong style="color:#00bcd4;">나:</strong> ${escapeHtml(question)}`;
+  aiChatLog.appendChild(userMsg);
+
+  aiInput.value = '';
+  aiChatLog.scrollTop = aiChatLog.scrollHeight;
+
+  const aiResponse = await callOllama(question);
+
+  const aiMsg = document.createElement('div');
+  aiMsg.style.marginBottom = '20px';
+  aiMsg.style.padding = '14px';
+  aiMsg.style.background = '#e0f7fa';
+  aiMsg.style.borderRadius = '12px';
+  aiMsg.style.borderLeft = '4px solid #00bcd4';
+  aiMsg.innerHTML = `<strong style="color:#006064;">AI:</strong> ${aiResponse.replace(/\n/g, '<br>')}`;
+  aiChatLog.appendChild(aiMsg);
+
+  aiChatLog.scrollTop = aiChatLog.scrollHeight;
+}
+
+aiSendBtn.addEventListener('click', sendAIQuestion);
+aiInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    sendAIQuestion();
+  }
+});
+
+</script>
+</body>
+</html>
