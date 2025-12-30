@@ -718,7 +718,7 @@
         ::-webkit-scrollbar-thumb:hover { background: #555; }
     </style>
 </head>
-<body oncontextmenu='return false' onselectstart='return false' ondragstart='return false'>
+<body >
     <div class="level-up-overlay" id="levelUpOverlay"></div>
     <div class="game-over-overlay" id="gameOverOverlay">
         <div class="game-over-content">
@@ -766,6 +766,7 @@
                 </div>
                 <div class="card-hand" id="myCards"></div>
                 <div class="action-buttons">
+                    <button id="discardCardBtn" onclick="toggleDiscardMode()" class="battle-btn">🗑️ 카드 버리기</button>
                     <button class="btn" id="drawCardBtn" onclick="drawCard()" style="font-size: 1.1em; padding: 12px 25px;">카드 뽑기</button>
                     <button class="btn" onclick="forfeitBattle()" style="font-size: 1.1em; padding: 12px 25px; background: #ff0000; color: #fff; border-color: #ff0000;">포기</button>
                 </div>
@@ -959,15 +960,15 @@
         // 데이터
         const foods = [
             {id: 'yukpo', name: '육포', img: 'youkfo.png', exp: 5, price: 0, reqLevel: 1},
-            {id: 'cupramen', name: '컵라면', img: 'cupramen.avif', exp: 15, price: 1500, reqLevel: 3},
-            {id: 'cupbab', name: '컵밥', img: 'rice.png', exp: 25, price: 2500, reqLevel: 5},
-            {id: 'mombab', name: '어머니의 집밥', img: 'Inruck.jpg', exp: 40, price: 4000, reqLevel: 8},
-            {id: 'hamburger', name: '햄버거', img: 'Hamburgur.jpg', exp: 60, price: 6000, reqLevel: 12},
-            {id: 'jjajang', name: '짜장면', img: 'ZZajang.jpg', exp: 85, price: 9000, reqLevel: 16},
-            {id: 'chicken', name: '치킨', img: 'costco.jpg', exp: 115, price: 13000, reqLevel: 20},
-            {id: 'steak', name: '스테이크', img: 'staek.png', exp: 150, price: 18000, reqLevel: 25},
-            {id: 'premium_steak', name: '최고급 스테이크', img: 'staek.png', exp: 200, price: 25000, reqLevel: 30},
-            {id: 'gordon_steak', name: '고든 램지 스테이크', img: 'staek.png', exp: 280, price: 40000, reqLevel: 40}
+            {id: 'cupramen', name: '컵라면', img: 'cupramen.avif', exp: 50, price: 15000, reqLevel: 5},
+            {id: 'cupbab', name: '컵밥', img: 'rice.png', exp: 500, price: 25000, reqLevel: 15},
+            {id: 'mombab', name: '어머니의 집밥', img: 'Inruck.jpg', exp: 1500, price: 40000, reqLevel: 30},
+            {id: 'hamburger', name: '햄버거', img: 'Hamburgur.jpg', exp: 3000, price: 60000, reqLevel: 60},
+            {id: 'jjajang', name: '짜장면', img: 'ZZajang.jpg', exp: 5000, price: 90000, reqLevel: 90},
+            {id: 'chicken', name: '치킨', img: 'costco.jpg', exp: 10000, price: 130000, reqLevel: 130},
+            {id: 'steak', name: '스테이크', img: 'staek.png', exp: 15800, price: 180000, reqLevel: 200},
+            {id: 'premium_steak', name: '최고급 스테이크', img: 'staek.png', exp: 250000, price: 25000, reqLevel: 300},
+            {id: 'gordon_steak', name: '고든 램지 스테이크', img: 'staek.png', exp: 45000, price: 400000, reqLevel: 500}
         ];
 
         const normalJobs = [
@@ -1521,722 +1522,808 @@
         }
 
 // ========================================
-        // ========================================
-        // 개선된 배틀 시스템 (애니메이션 + 자동 드로우 + 복원)
-        // ========================================
+// ========================================
+// 개선된 배틀 시스템 (애니메이션 + 자동 드로우 + 복원 + 카드 버리기)
+// ========================================
 
-        // 배틀 초대 체크 (child_added/child_changed 사용으로 중복 방지)
-        function checkBattleInvitations() {
-            // pending 초대만 처리
-            db.ref('seoEunWoo_battles').orderByChild('opponent').equalTo(userId).on('child_added', (snapshot) => {
-                const battle = snapshot.val();
-                if (battle && battle.status === 'pending') {
-                    const badge = document.getElementById('invitationBadge');
-                    badge.classList.add('show');
-                    if (!document.getElementById('battleInvitation').classList.contains('show')) {
-                        showBattleInvitation({id: snapshot.key, ...battle});
-                    }
-                }
-            });
+// 전역 변수 추가
+let discardMode = false; // 버리기 모드 플래그
 
-            // ready 상태 감지 (challenger용)
-            db.ref('seoEunWoo_battles').orderByChild('challenger').equalTo(userId).on('child_changed', (snapshot) => {
-                const battle = snapshot.val();
-                if (battle && battle.status === 'ready' && !document.getElementById('battleArena').classList.contains('show') && currentBattleId !== snapshot.key) {
-                    console.log('🎮 상대 수락 감지, 배틀 시작:', snapshot.key);
-                    startBattle(snapshot.key);
-                }
-            });
+// 배틀 초대 체크 (child_added/child_changed 사용으로 중복 방지)
+function checkBattleInvitations() {
+    // pending 초대만 처리
+    db.ref('seoEunWoo_battles').orderByChild('opponent').equalTo(userId).on('child_added', (snapshot) => {
+        const battle = snapshot.val();
+        if (battle && battle.status === 'pending') {
+            const badge = document.getElementById('invitationBadge');
+            badge.classList.add('show');
+            if (!document.getElementById('battleInvitation').classList.contains('show')) {
+                showBattleInvitation({id: snapshot.key, ...battle});
+            }
         }
+    });
 
-        function showBattleInvitation(battle) {
-            document.getElementById('invitationText').textContent = 
-                `${battle.challengerName}님이 대전을 신청했습니다! (전투력: ${battle.challengerPower})`;
-            document.getElementById('battleInvitation').classList.add('show');
-            currentBattleId = battle.id || battle.battleId;
-            playSound(1200, 300);
+    // ready 상태 감지 (challenger용)
+    db.ref('seoEunWoo_battles').orderByChild('challenger').equalTo(userId).on('child_changed', (snapshot) => {
+        const battle = snapshot.val();
+        if (battle && battle.status === 'ready' && !document.getElementById('battleArena').classList.contains('show') && currentBattleId !== snapshot.key) {
+            console.log('🎮 상대 수락 감지, 배틀 시작:', snapshot.key);
+            startBattle(snapshot.key);
         }
+    });
+}
 
-        function sendBattleInvitation(opponentId, opponentName, opponentPower) {
-            const battleId = 'battle_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            const battleData = {
-                battleId,
-                challenger: userId,
-                challengerName: nickname,
-                challengerPower: calculatePower(),
-                opponent: opponentId,
-                opponentName: opponentName,
-                opponentPower: opponentPower,
-                status: 'pending',
-                createdAt: Date.now()
-            };
-    
-            db.ref('seoEunWoo_battles/' + battleId).set(battleData).then(() => {
-                showToast(`${opponentName}에게 대전 신청!`, 'success');
-                playSound(1000);
-                toggleMultiplayer();
-            });
-        }
+function showBattleInvitation(battle) {
+    document.getElementById('invitationText').textContent = 
+        `${battle.challengerName}님이 대전을 신청했습니다! (전투력: ${battle.challengerPower})`;
+    document.getElementById('battleInvitation').classList.add('show');
+    currentBattleId = battle.id || battle.battleId;
+    playSound(1200, 300);
+}
 
-        function acceptBattle() {
-            if (!currentBattleId) return;
-    
-            db.ref('seoEunWoo_battles/' + currentBattleId).once('value', (snapshot) => {
-                const battle = snapshot.val();
-                if (!battle) return;
-        
-                const player1Cards = generateInitialCards();
-                const player2Cards = generateInitialCards();
-        
-                db.ref('seoEunWoo_battles/' + currentBattleId).update({
-                    status: 'ready',
-                    acceptedAt: Date.now(),
-                    player1HP: 100,
-                    player2HP: 100,
-                    player1Cards: player1Cards,
-                    player2Cards: player2Cards,
-                    currentTurn: battle.opponent, // 수락자(opponent)가 먼저
-                    phase: 'STANDBY',
-                    standbyCard: null,
-                    battleLog: [{message: '대전이 시작되었습니다!', critical: false}]
-                }).then(() => {
-                    document.getElementById('battleInvitation').classList.remove('show');
-                    document.getElementById('invitationBadge').classList.remove('show');
-                    startBattle(currentBattleId);
-                });
-            });
-        }
+function sendBattleInvitation(opponentId, opponentName, opponentPower) {
+    const battleId = 'battle_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    const battleData = {
+        battleId,
+        challenger: userId,
+        challengerName: nickname,
+        challengerPower: calculatePower(),
+        opponent: opponentId,
+        opponentName: opponentName,
+        opponentPower: opponentPower,
+        status: 'pending',
+        createdAt: Date.now()
+    };
 
-        function declineBattle() {
-            if (!currentBattleId) return;
-            db.ref('seoEunWoo_battles/' + currentBattleId).update({status: 'declined'});
+    db.ref('seoEunWoo_battles/' + battleId).set(battleData).then(() => {
+        showToast(`${opponentName}에게 대전 신청!`, 'success');
+        playSound(1000);
+        toggleMultiplayer();
+    });
+}
+
+function acceptBattle() {
+    if (!currentBattleId) return;
+
+    db.ref('seoEunWoo_battles/' + currentBattleId).once('value', (snapshot) => {
+        const battle = snapshot.val();
+        if (!battle) return;
+
+        const player1Cards = generateInitialCards();
+        const player2Cards = generateInitialCards();
+
+        db.ref('seoEunWoo_battles/' + currentBattleId).update({
+            status: 'ready',
+            acceptedAt: Date.now(),
+            player1HP: 100,
+            player2HP: 100,
+            player1Cards: player1Cards,
+            player2Cards: player2Cards,
+            currentTurn: battle.opponent, // 수락자(opponent)가 먼저
+            phase: 'STANDBY',
+            standbyCard: null,
+            battleLog: [{message: '대전이 시작되었습니다!', critical: false}]
+        }).then(() => {
             document.getElementById('battleInvitation').classList.remove('show');
             document.getElementById('invitationBadge').classList.remove('show');
-            currentBattleId = null;
-            showToast('대전 거절', 'success');
-        }
+            startBattle(currentBattleId);
+        });
+    });
+}
 
-        function generateInitialCards() {
-            const types = ['attack', 'defense', 'dodge'];
-            return Array(3).fill(0).map(() => ({
-                type: types[Math.floor(Math.random() * 3)],
-                id: Math.random().toString(36).substr(2, 9)
-            }));
-        }
+function declineBattle() {
+    if (!currentBattleId) return;
+    db.ref('seoEunWoo_battles/' + currentBattleId).update({status: 'declined'});
+    document.getElementById('battleInvitation').classList.remove('show');
+    document.getElementById('invitationBadge').classList.remove('show');
+    currentBattleId = null;
+    showToast('대전 거절', 'success');
+}
 
-        function startBattle(battleId) {
-            console.log('===============================');
-            console.log('🎮 startBattle 호출됨:', battleId);
-            console.log('현재 battleId:', currentBattleId);
-            console.log('아레나 열림:', document.getElementById('battleArena').classList.contains('show'));
-            
-            if (currentBattleId === battleId && document.getElementById('battleArena').classList.contains('show')) {
-                console.log('❌ 배틀 이미 시작됨, 중복 방지');
-                return;
-            }
-            
-            currentBattleId = battleId;
-            localStorage.setItem('seoEunWoo_battleId', battleId);
-            
-            document.getElementById('battleInvitation').classList.remove('show');
-            document.getElementById('invitationBadge').classList.remove('show');
-            document.getElementById('battleArena').classList.add('show');
-            
-            console.log('✅ 배틀 아레나 열림');
-            
-            db.ref('seoEunWoo_battles/' + battleId).once('value', (snapshot) => {
-                battleState = snapshot.val();
-                console.log('📥 Firebase 데이터:', battleState);
-                
-                if (!battleState || battleState.status !== 'ready') {
-                    console.log('❌ 배틀 상태가 ready가 아님:', battleState?.status);
-                    return;
-                }
-                
-                const isChallenger = battleState.challenger === userId;
-                console.log('내가 Challenger?', isChallenger);
-                console.log('player1Cards:', battleState.player1Cards);
-                console.log('player2Cards:', battleState.player2Cards);
-                
-                myCards = isChallenger ? (battleState.player1Cards || []) : (battleState.player2Cards || []);
-                opponentCards = isChallenger ? (battleState.player2Cards || []) : (battleState.player1Cards || []);
-                
-                console.log('✅ 내 카드 할당됨:', myCards);
-                console.log('✅ 상대 카드 할당됨:', opponentCards);
-                
-                document.getElementById('myBattleName').textContent = isChallenger ? battleState.challengerName : battleState.opponentName;
-                document.getElementById('opponentName').textContent = isChallenger ? battleState.opponentName : battleState.challengerName;
-                document.getElementById('myBattlePower').textContent = isChallenger ? battleState.challengerPower : battleState.opponentPower;
-                document.getElementById('opponentPower').textContent = isChallenger ? battleState.opponentPower : battleState.challengerPower;
-                
-                console.log('🎨 updateBattleUI 호출 시작');
-                updateBattleUI();
-                console.log('✅ updateBattleUI 완료');
-                
-                if (battleListener) {
-                    db.ref('seoEunWoo_battles/' + battleId).off('value', battleListener);
-                }
-                battleListener = db.ref('seoEunWoo_battles/' + battleId).on('value', (s) => {
-                    battleState = s.val();
-                    if (!battleState) return;
-                    
-                    if (battleState.status === 'finished') {
-                        endBattle();
-                    } else {
-                        const isC = battleState.challenger === userId;
-                        myCards = isC ? (battleState.player1Cards || []) : (battleState.player2Cards || []);
-                        opponentCards = isC ? (battleState.player2Cards || []) : (battleState.player1Cards || []);
-                        battlePhase = battleState.phase || 'STANDBY';
-                        console.log('🔄 실시간 업데이트 - 내 카드 수:', myCards.length);
-                        updateBattleUI();
-                    }
-                });
-                
-                console.log('✅ 리스너 등록 완료');
-                console.log('===============================');
-            });
-        }
+function generateInitialCards() {
+    const types = ['attack', 'defense', 'dodge'];
+    return Array(3).fill(0).map(() => ({
+        type: types[Math.floor(Math.random() * 3)],
+        id: Math.random().toString(36).substr(2, 9)
+    }));
+}
 
-        function updateBattleUI() {
-            console.log('🎨 updateBattleUI 시작');
-            console.log('battleState:', battleState);
-            console.log('myCards:', myCards);
-            
-            if (!battleState) {
-                console.log('❌ battleState 없음');
-                return;
-            }
-            
-            const isChallenger = battleState.challenger === userId;
-            console.log('내가 Challenger?', isChallenger);
-            
-            document.getElementById('myBattleHP').textContent = isChallenger ? battleState.player1HP : battleState.player2HP;
-            document.getElementById('opponentHP').textContent = isChallenger ? battleState.player2HP : battleState.player1HP;
-            
-            const isMyTurn = battleState.currentTurn === userId;
-            battlePhase = battleState.phase || 'STANDBY';
-            
-            console.log('내 턴?', isMyTurn);
-            console.log('페이즈:', battlePhase);
-            
-            let phaseText = battlePhase === 'BATTLE' ? '⚔️ BATTLE PHASE ⚔️' : isMyTurn ? 'YOUR TURN - 카드 선택' : 'OPPONENT\'S TURN';
-            document.getElementById('turnIndicator').textContent = phaseText;
-            document.getElementById('turnIndicator').style.background = isMyTurn ? '#fff' : '#888';
-            document.getElementById('turnIndicator').style.color = isMyTurn ? '#000' : '#fff';
-            
-            console.log('🎴 renderMyCards 호출');
-            renderMyCards();
-            console.log('👤 renderOpponentCards 호출');
-            renderOpponentCards();
-            console.log('📜 renderBattleLog 호출');
-            renderBattleLog();
-            
-            document.getElementById('drawCardBtn').disabled = !isMyTurn || battlePhase !== 'STANDBY' || myCards.length >= 5;
-            console.log('✅ updateBattleUI 완료');
+function startBattle(battleId) {
+    console.log('===============================');
+    console.log('🎮 startBattle 호출됨:', battleId);
+    console.log('현재 battleId:', currentBattleId);
+    console.log('아레나 열림:', document.getElementById('battleArena').classList.contains('show'));
+    
+    if (currentBattleId === battleId && document.getElementById('battleArena').classList.contains('show')) {
+        console.log('❌ 배틀 이미 시작됨, 중복 방지');
+        return;
+    }
+    
+    currentBattleId = battleId;
+    localStorage.setItem('seoEunWoo_battleId', battleId);
+    
+    document.getElementById('battleInvitation').classList.remove('show');
+    document.getElementById('invitationBadge').classList.remove('show');
+    document.getElementById('battleArena').classList.add('show');
+    
+    console.log('✅ 배틀 아레나 열림');
+    
+    db.ref('seoEunWoo_battles/' + battleId).once('value', (snapshot) => {
+        battleState = snapshot.val();
+        console.log('📥 Firebase 데이터:', battleState);
+        
+        if (!battleState || battleState.status !== 'ready') {
+            console.log('❌ 배틀 상태가 ready가 아님:', battleState?.status);
+            return;
         }
-
-        function renderMyCards() {
-            console.log('🎴 renderMyCards 시작, myCards:', myCards);
-            
-            const container = document.getElementById('myCards');
-            if (!container) {
-                console.error('❌ myCards div를 찾을 수 없음!');
-                return;
-            }
-            
-            if (!myCards || myCards.length === 0) {
-                console.log('❌ 카드 없음');
-                container.innerHTML = '<p style="color: #888; text-align: center; width: 100%; padding: 50px;">카드가 없습니다!</p>';
-                return;
-            }
-            
-            const icons = {attack: '⚔️', defense: '🛡️', dodge: '💨'};
-            const names = {attack: '공격', defense: '방어', dodge: '회피'};
-            const colors = {attack: '#ff0000', defense: '#00ff00', dodge: '#00bfff'};
-            
-            const isMyTurn = battleState && battleState.currentTurn === userId;
-            const standbyCard = battleState?.standbyCard;
-            
-            console.log('🎴 카드 렌더링:', {카드수: myCards.length, 내턴: isMyTurn, 페이즈: battlePhase});
-            
-            const cardsHtml = myCards.map((card, i) => {
-                let highlight = '';
-                let clickable = isMyTurn && battlePhase === 'STANDBY';
-                
-                if (standbyCard && standbyCard.playerId !== userId) {
-                    if (standbyCard.type === 'attack') {
-                        highlight = (card.type === 'defense' || card.type === 'dodge') ? 
-                            'box-shadow: 0 0 30px ' + colors[card.type] + '; transform: translateY(-10px);' : 
-                            'opacity: 0.3;';
-                        clickable = (card.type === 'defense' || card.type === 'dodge');
-                    } else {
-                        highlight = card.type === 'attack' ? 
-                            'box-shadow: 0 0 30px ' + colors[card.type] + '; transform: translateY(-10px);' : 
-                            'opacity: 0.3;';
-                        clickable = card.type === 'attack';
-                    }
-                }
-                
-                return '<div class="battle-card ' + card.type + '" onclick="' + (clickable ? 'playCard(' + i + ')' : '') + '" style="' + (!clickable ? 'opacity: 0.5; cursor: not-allowed;' : '') + ' ' + highlight + '"><div class="card-icon">' + icons[card.type] + '</div><div class="card-name">' + names[card.type] + '</div><div class="card-chance">성공률 60%</div></div>';
-            }).join('');
-            
-            container.innerHTML = cardsHtml;
-            console.log('✅ 카드 HTML 설정 완료, 길이:', cardsHtml.length);
+        
+        const isChallenger = battleState.challenger === userId;
+        console.log('내가 Challenger?', isChallenger);
+        console.log('player1Cards:', battleState.player1Cards);
+        console.log('player2Cards:', battleState.player2Cards);
+        
+        myCards = isChallenger ? (battleState.player1Cards || []) : (battleState.player2Cards || []);
+        opponentCards = isChallenger ? (battleState.player2Cards || []) : (battleState.player1Cards || []);
+        
+        console.log('✅ 내 카드 할당됨:', myCards);
+        console.log('✅ 상대 카드 할당됨:', opponentCards);
+        
+        document.getElementById('myBattleName').textContent = isChallenger ? battleState.challengerName : battleState.opponentName;
+        document.getElementById('opponentName').textContent = isChallenger ? battleState.opponentName : battleState.challengerName;
+        document.getElementById('myBattlePower').textContent = isChallenger ? battleState.challengerPower : battleState.opponentPower;
+        document.getElementById('opponentPower').textContent = isChallenger ? battleState.opponentPower : battleState.challengerPower;
+        
+        console.log('🎨 updateBattleUI 호출 시작');
+        updateBattleUI();
+        console.log('✅ updateBattleUI 완료');
+        
+        if (battleListener) {
+            db.ref('seoEunWoo_battles/' + battleId).off('value', battleListener);
         }
-
-        function renderOpponentCards() {
-            const cardCount = opponentCards?.length || 3;
-            document.getElementById('opponentCardsArea').innerHTML = Array(cardCount).fill(0).map(() => `
-                <div style="width: 150px; height: 220px; background: #1a1a1a; border: 3px solid #333; 
-                            display: flex; align-items: center; justify-content: center; font-size: 3em;">?</div>
-            `).join('');
-        }
-
-        function renderBattleLog() {
-            const logs = battleState?.battleLog || [];
-            const container = document.getElementById('battleLog');
-            if (logs.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">대전이 시작되었습니다!</div>';
-                return;
-            }
-            container.innerHTML = logs.slice(-5).reverse().map(log => 
-                `<div class="battle-log-item ${log.critical ? 'critical' : ''}">${log.message}</div>`
-            ).join('');
-        }
-
-        function playCard(index) {
-            console.log('===============================');
-            console.log('🎴 카드 클릭됨!');
-            console.log('인덱스:', index);
-            console.log('현재 턴:', battleState?.currentTurn);
-            console.log('내 ID:', userId);
-            console.log('페이즈:', battlePhase);
-            console.log('내 턴?', battleState?.currentTurn === userId);
+        battleListener = db.ref('seoEunWoo_battles/' + battleId).on('value', (s) => {
+            battleState = s.val();
+            if (!battleState) return;
             
-            if (!battleState) {
-                console.log('❌ battleState 없음');
-                showToast('배틀 상태가 없습니다!', 'fail');
-                return;
-            }
-            
-            if (battleState.currentTurn !== userId) {
-                console.log('❌ 내 턴 아님');
-                showToast('당신의 턴이 아닙니다!', 'fail');
-                return;
-            }
-            
-            if (battlePhase !== 'STANDBY') {
-                console.log('❌ STANDBY 페이즈 아님');
-                showToast('지금은 카드를 낼 수 없습니다!', 'fail');
-                return;
-            }
-            
-            if (!myCards || !myCards[index]) {
-                console.log('❌ 카드 없음');
-                showToast('유효하지 않은 카드입니다!', 'fail');
-                return;
-            }
-            
-            const card = myCards[index];
-            console.log('✅ 카드 선택:', card.type);
-            
-            const isChallenger = battleState.challenger === userId;
-            const standbyCard = battleState.standbyCard;
-            
-            // 애니메이션
-            const cardElements = document.querySelectorAll('.battle-card');
-            if (cardElements[index]) {
-                cardElements[index].classList.add('selected');
-            }
-            
-            if (!standbyCard) {
-                // 첫 카드 내기
-                console.log('📤 첫 카드 내기');
-                myCards.splice(index, 1);
-                
-                const updates = {
-                    standbyCard: {
-                        type: card.type,
-                        playerId: userId,
-                        playerName: isChallenger ? battleState.challengerName : battleState.opponentName,
-                        cardId: card.id
-                    },
-                    player1Cards: isChallenger ? myCards : battleState.player1Cards,
-                    player2Cards: isChallenger ? battleState.player2Cards : myCards,
-                    currentTurn: isChallenger ? battleState.opponent : battleState.challenger,
-                    battleLog: [...(battleState.battleLog || []), {
-                        message: isChallenger ? battleState.challengerName : battleState.opponentName + '가 ' + getCardName(card.type) + ' 카드를 냈습니다!',
-                        critical: false
-                    }]
-                };
-                
-                console.log('📤 Firebase 업데이트 시작');
-                db.ref('seoEunWoo_battles/' + currentBattleId).update(updates).then(() => {
-                    console.log('✅ Firebase 업데이트 완료');
-                }).catch(err => {
-                    console.error('❌ Firebase 업데이트 실패:', err);
-                });
-                
-                addEffect(card.type, 'my');
-                playSound(800);
+            if (battleState.status === 'finished') {
+                endBattle();
             } else {
-                // 대응
-                console.log('⚔️ 대응 카드 내기');
-                let canRespond = false;
+                const isC = battleState.challenger === userId;
+                myCards = isC ? (battleState.player1Cards || []) : (battleState.player2Cards || []);
+                opponentCards = isC ? (battleState.player2Cards || []) : (battleState.player1Cards || []);
+                battlePhase = battleState.phase || 'STANDBY';
+                discardMode = false; // 실시간 업데이트 시 버리기 모드 강제 해제
+                console.log('🔄 실시간 업데이트 - 내 카드 수:', myCards.length);
+                updateBattleUI();
+            }
+        });
+        
+        console.log('✅ 리스너 등록 완료');
+        console.log('===============================');
+    });
+}
+
+function updateBattleUI() {
+    console.log('🎨 updateBattleUI 시작');
+    console.log('battleState:', battleState);
+    console.log('myCards:', myCards);
+    
+    if (!battleState) {
+        console.log('❌ battleState 없음');
+        return;
+    }
+    
+    const isChallenger = battleState.challenger === userId;
+    console.log('내가 Challenger?', isChallenger);
+    
+    document.getElementById('myBattleHP').textContent = isChallenger ? battleState.player1HP : battleState.player2HP;
+    document.getElementById('opponentHP').textContent = isChallenger ? battleState.player2HP : battleState.player1HP;
+    
+    const isMyTurn = battleState.currentTurn === userId;
+    battlePhase = battleState.phase || 'STANDBY';
+    
+    console.log('내 턴?', isMyTurn);
+    console.log('페이즈:', battlePhase);
+    
+    let phaseText = battlePhase === 'BATTLE' ? '⚔️ BATTLE PHASE ⚔️' 
+        : discardMode ? '🗑️ 버리기 모드 - 버릴 카드 선택' 
+        : isMyTurn ? 'YOUR TURN - 카드 선택' 
+        : 'OPPONENT\'S TURN';
+    document.getElementById('turnIndicator').textContent = phaseText;
+    document.getElementById('turnIndicator').style.background = discardMode ? '#ff9800' : (isMyTurn ? '#fff' : '#888');
+    document.getElementById('turnIndicator').style.color = discardMode ? '#000' : (isMyTurn ? '#000' : '#fff');
+    
+    console.log('🎴 renderMyCards 호출');
+    renderMyCards();
+    console.log('👤 renderOpponentCards 호출');
+    renderOpponentCards();
+    console.log('📜 renderBattleLog 호출');
+    renderBattleLog();
+    
+    document.getElementById('drawCardBtn').disabled = !isMyTurn || battlePhase !== 'STANDBY' || myCards.length >= 5;
+    
+    // 버리기 버튼 활성화 조건
+    const discardBtn = document.getElementById('discardCardBtn');
+    if (discardBtn) {
+        discardBtn.disabled = !isMyTurn || battlePhase !== 'STANDBY' || myCards.length <= 0;
+    }
+    
+    console.log('✅ updateBattleUI 완료');
+}
+
+function renderMyCards() {
+    console.log('🎴 renderMyCards 시작, myCards:', myCards);
+    
+    const container = document.getElementById('myCards');
+    if (!container) {
+        console.error('❌ myCards div를 찾을 수 없음!');
+        return;
+    }
+    
+    if (!myCards || myCards.length === 0) {
+        console.log('❌ 카드 없음');
+        container.innerHTML = '<p style="color: #888; text-align: center; width: 100%; padding: 50px;">카드가 없습니다!</p>';
+        return;
+    }
+    
+    const icons = {attack: '⚔️', defense: '🛡️', dodge: '💨'};
+    const names = {attack: '공격', defense: '방어', dodge: '회피'};
+    const colors = {attack: '#ff0000', defense: '#00ff00', dodge: '#00bfff'};
+    
+    const isMyTurn = battleState && battleState.currentTurn === userId;
+    const standbyCard = battleState?.standbyCard;
+    
+    console.log('🎴 카드 렌더링:', {카드수: myCards.length, 내턴: isMyTurn, 페이즈: battlePhase, 버리기모드: discardMode});
+    
+    const cardsHtml = myCards.map((card, i) => {
+        let highlight = '';
+        let clickable = false;
+        let onclickFunc = '';
+        
+        if (discardMode) {
+            // 버리기 모드: 모든 카드 클릭 가능
+            clickable = isMyTurn && battlePhase === 'STANDBY';
+            onclickFunc = clickable ? `discardCard(${i})` : '';
+            highlight = 'box-shadow: 0 0 20px #ff9800; border: 3px solid #ff9800;';
+        } else {
+            // 일반 모드: 기존 playCard 로직
+            clickable = isMyTurn && battlePhase === 'STANDBY';
+            
+            if (standbyCard && standbyCard.playerId !== userId) {
                 if (standbyCard.type === 'attack') {
-                    canRespond = card.type === 'defense' || card.type === 'dodge';
+                    highlight = (card.type === 'defense' || card.type === 'dodge') ? 
+                        'box-shadow: 0 0 30px ' + colors[card.type] + '; transform: translateY(-10px);' : 
+                        'opacity: 0.3;';
+                    clickable = (card.type === 'defense' || card.type === 'dodge');
                 } else {
-                    canRespond = card.type === 'attack';
+                    highlight = card.type === 'attack' ? 
+                        'box-shadow: 0 0 30px ' + colors[card.type] + '; transform: translateY(-10px);' : 
+                        'opacity: 0.3;';
+                    clickable = card.type === 'attack';
                 }
-                
-                if (!canRespond) {
-                    console.log('❌ 대응 불가 - 자동 드로우');
-                    if (myCards.length < 5) {
-                        const newCard = generateInitialCards()[0];
-                        myCards.push(newCard);
-                    }
-                    
-                    const updates = {
-                        player1Cards: isChallenger ? myCards : battleState.player1Cards,
-                        player2Cards: isChallenger ? battleState.player2Cards : myCards,
-                        currentTurn: isChallenger ? battleState.opponent : battleState.challenger,
-                        battleLog: [...(battleState.battleLog || []), {
-                            message: (isChallenger ? battleState.challengerName : battleState.opponentName) + '는 대응 카드가 없어 자동 드로우!',
-                            critical: false
-                        }]
-                    };
-                    
-                    console.log('📤 자동 드로우 업데이트');
-                    db.ref('seoEunWoo_battles/' + currentBattleId).update(updates);
-                    playSound(600);
-                    return;
-                }
-                
-                // 대응 가능: 배틀 페이즈
-                console.log('⚔️ 배틀 페이즈 진입!');
-                myCards.splice(index, 1);
-                addEffect(card.type, 'my');
-                resolveBattle(standbyCard, card);
+            }
+            onclickFunc = clickable ? `playCard(${i})` : '';
+        }
+        
+        const cursorStyle = !clickable ? 'cursor: not-allowed;' : '';
+        const opacityStyle = !clickable ? 'opacity: 0.5;' : '';
+        
+        return `<div class="battle-card ${card.type}" onclick="${onclickFunc}" style="${cursorStyle} ${opacityStyle} ${highlight}">
+                    <div class="card-icon">${icons[card.type]}</div>
+                    <div class="card-name">${names[card.type]}</div>
+                    <div class="card-chance">성공률 60%</div>
+                </div>`;
+    }).join('');
+    
+    container.innerHTML = cardsHtml;
+    console.log('✅ 카드 HTML 설정 완료, 길이:', cardsHtml.length);
+}
+
+function renderOpponentCards() {
+    const cardCount = opponentCards?.length || 3;
+    document.getElementById('opponentCardsArea').innerHTML = Array(cardCount).fill(0).map(() => `
+        <div style="width: 150px; height: 220px; background: #1a1a1a; border: 3px solid #333; 
+                    display: flex; align-items: center; justify-content: center; font-size: 3em;">?</div>
+    `).join('');
+}
+
+function renderBattleLog() {
+    const logs = battleState?.battleLog || [];
+    const container = document.getElementById('battleLog');
+    if (logs.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">대전이 시작되었습니다!</div>';
+        return;
+    }
+    container.innerHTML = logs.slice(-5).reverse().map(log => 
+        `<div class="battle-log-item ${log.critical ? 'critical' : ''}">${log.message}</div>`
+    ).join('');
+}
+
+// 새로 추가: 카드 버리기 함수
+function discardCard(index) {
+    if (!battleState || battleState.currentTurn !== userId || battlePhase !== 'STANDBY' || !discardMode) {
+        showToast('버릴 수 없는 상태입니다!', 'fail');
+        return;
+    }
+    
+    if (!myCards || !myCards[index]) {
+        showToast('유효하지 않은 카드입니다!', 'fail');
+        return;
+    }
+    
+    const card = myCards[index];
+    myCards.splice(index, 1); // 카드 제거
+    
+    const isChallenger = battleState.challenger === userId;
+    
+    const updates = {
+        player1Cards: isChallenger ? myCards : battleState.player1Cards,
+        player2Cards: isChallenger ? battleState.player2Cards : myCards,
+        currentTurn: isChallenger ? battleState.opponent : battleState.challenger, // 턴 종료
+        battleLog: [...(battleState.battleLog || []), {
+            message: `${isChallenger ? battleState.challengerName : battleState.opponentName}가 ${getCardName(card.type)} 카드를 버리고 턴을 종료했습니다.`,
+            critical: false
+        }]
+    };
+    
+    db.ref('seoEunWoo_battles/' + currentBattleId).update(updates).then(() => {
+        discardMode = false; // 버리기 모드 해제
+        playSound(600);
+        showToast('카드를 버리고 턴을 종료했습니다.', 'success');
+    });
+}
+
+// 버리기 모드 토글 함수
+function toggleDiscardMode() {
+    if (!battleState || battleState.currentTurn !== userId || battlePhase !== 'STANDBY') {
+        showToast('지금은 카드를 버릴 수 없습니다!', 'fail');
+        return;
+    }
+    
+    discardMode = !discardMode;
+    
+    if (discardMode) {
+        showToast('버릴 카드를 선택하세요. (버리기 버튼 다시 누르면 취소)', 'info');
+    } else {
+        showToast('버리기 모드가 취소되었습니다.', 'info');
+    }
+    
+    updateBattleUI(); // UI 즉시 갱신
+    playSound(700);
+}
+
+function playCard(index) {
+    console.log('===============================');
+    console.log('🎴 카드 클릭됨!');
+    console.log('인덱스:', index);
+    console.log('현재 턴:', battleState?.currentTurn);
+    console.log('내 ID:', userId);
+    console.log('페이즈:', battlePhase);
+    console.log('내 턴?', battleState?.currentTurn === userId);
+    
+    if (!battleState) {
+        console.log('❌ battleState 없음');
+        showToast('배틀 상태가 없습니다!', 'fail');
+        return;
+    }
+    
+    if (battleState.currentTurn !== userId) {
+        console.log('❌ 내 턴 아님');
+        showToast('당신의 턴이 아닙니다!', 'fail');
+        return;
+    }
+    
+    if (battlePhase !== 'STANDBY') {
+        console.log('❌ STANDBY 페이즈 아님');
+        showToast('지금은 카드를 낼 수 없습니다!', 'fail');
+        return;
+    }
+    
+    if (!myCards || !myCards[index]) {
+        console.log('❌ 카드 없음');
+        showToast('유효하지 않은 카드입니다!', 'fail');
+        return;
+    }
+    
+    const card = myCards[index];
+    console.log('✅ 카드 선택:', card.type);
+    
+    const isChallenger = battleState.challenger === userId;
+    const standbyCard = battleState.standbyCard;
+    
+    // 애니메이션
+    const cardElements = document.querySelectorAll('.battle-card');
+    if (cardElements[index]) {
+        cardElements[index].classList.add('selected');
+    }
+    
+    if (!standbyCard) {
+        // 첫 카드 내기
+        console.log('📤 첫 카드 내기');
+        myCards.splice(index, 1);
+        
+        const updates = {
+            standbyCard: {
+                type: card.type,
+                playerId: userId,
+                playerName: isChallenger ? battleState.challengerName : battleState.opponentName,
+                cardId: card.id
+            },
+            player1Cards: isChallenger ? myCards : battleState.player1Cards,
+            player2Cards: isChallenger ? battleState.player2Cards : myCards,
+            currentTurn: isChallenger ? battleState.opponent : battleState.challenger,
+            battleLog: [...(battleState.battleLog || []), {
+                message: isChallenger ? battleState.challengerName : battleState.opponentName + '가 ' + getCardName(card.type) + ' 카드를 냈습니다!',
+                critical: false
+            }]
+        };
+        
+        console.log('📤 Firebase 업데이트 시작');
+        db.ref('seoEunWoo_battles/' + currentBattleId).update(updates).then(() => {
+            console.log('✅ Firebase 업데이트 완료');
+        }).catch(err => {
+            console.error('❌ Firebase 업데이트 실패:', err);
+        });
+        
+        addEffect(card.type, 'my');
+        playSound(800);
+    } else {
+        // 대응
+        console.log('⚔️ 대응 카드 내기');
+        let canRespond = false;
+        if (standbyCard.type === 'attack') {
+            canRespond = card.type === 'defense' || card.type === 'dodge';
+        } else {
+            canRespond = card.type === 'attack';
+        }
+        
+        if (!canRespond) {
+            console.log('❌ 대응 불가 - 자동 드로우');
+            if (myCards.length < 5) {
+                const newCard = generateInitialCards()[0];
+                myCards.push(newCard);
             }
             
-            console.log('===============================');
-        }
-
-
-        function resolveBattle(card1, card2) {
-            const isChallenger = battleState.challenger === userId;
-    
-            const success1 = Math.random() < 0.6;
-            const success2 = Math.random() < 0.6;
-            const critical1 = success1 && Math.random() < 0.25;
-            const critical2 = success2 && Math.random() < 0.25;
-    
-            console.log('⚔️ 배틀 판정:', {success1, critical1, success2, critical2});
-    
-            let newMyHP = isChallenger ? battleState.player1HP : battleState.player2HP;
-            let newOpHP = isChallenger ? battleState.player2HP : battleState.player1HP;
-            let battleLog = [...(battleState.battleLog || [])];
-            let drawCardPlayer = null;
-    
-            battleLog.push({message: `⚔️ 배틀 페이즈 시작!`, critical: false});
-    
-            // 이펙트 추가
-            addEffect(card1.type, card1.playerId === userId ? 'my' : 'op');
-            setTimeout(() => addEffect(card2.type, card2.playerId === userId ? 'op' : 'my'), 500);
-    
-            // 무승부
-            if (success1 === success2) {
-                battleLog.push({message: `무승부! 양쪽 모두 카드를 한 장 뽑습니다.`, critical: false});
-                if (myCards.length < 5) myCards.push(generateInitialCards()[0]);
-                if (opponentCards.length < 5) opponentCards.push(generateInitialCards()[0]);
-            }
-            // 카드1 성공, 카드2 실패
-            else if (success1 && !success2) {
-                const damage = calculateDamage(card1.type, critical1);
-                if (card1.playerId === userId) {
-                    newOpHP = Math.max(0, newOpHP - damage);
-                    battleLog.push({message: `${card1.playerName}의 ${critical1 ? '치명적인 ' : ''}${getCardName(card1.type)}! -${damage} HP`, critical: critical1});
-                    drawCardPlayer = 'opponent';
-                } else {
-                    newMyHP = Math.max(0, newMyHP - damage);
-                    battleLog.push({message: `${card1.playerName}의 ${critical1 ? '치명적인 ' : ''}${getCardName(card1.type)}! -${damage} HP`, critical: critical1});
-                    drawCardPlayer = 'me';
-                }
-            }
-            // 카드2 성공, 카드1 실패
-            else if (!success1 && success2) {
-                const playerName = isChallenger ? battleState.challengerName : battleState.opponentName;
-                if (card2.type === 'defense') {
-                    const heal = critical2 ? 20 : 10;
-                    newMyHP = Math.min(100, newMyHP + heal);
-                    battleLog.push({message: `${playerName}의 ${critical2 ? '완벽한 ' : ''}방어! +${heal} HP`, critical: critical2});
-                } else if (card2.type === 'dodge') {
-                    const damage = critical2 ? 20 : 10;
-                    newOpHP = Math.max(0, newOpHP - damage);
-                    battleLog.push({message: `${playerName}의 ${critical2 ? '완벽한 ' : ''}회피 반격! -${damage} HP`, critical: critical2});
-                } else {
-                    const damage = critical2 ? 25 : 15;
-                    newOpHP = Math.max(0, newOpHP - damage);
-                    battleLog.push({message: `${playerName}의 ${critical2 ? '치명적인 ' : ''}공격! -${damage} HP`, critical: critical2});
-                }
-                drawCardPlayer = 'opponent';
-            }
-    
-            // 피해받은 플레이어 추가 드로우
-            if (drawCardPlayer === 'me' && myCards.length < 5) {
-                myCards.push(generateInitialCards()[0]);
-                battleLog.push({message: `피해를 받아 카드를 1장 뽑았습니다.`, critical: false});
-            } else if (drawCardPlayer === 'opponent' && opponentCards.length < 5) {
-                opponentCards.push(generateInitialCards()[0]);
-            }
-    
             const updates = {
-                player1HP: isChallenger ? newMyHP : newOpHP,
-                player2HP: isChallenger ? newOpHP : newMyHP,
-                player1Cards: isChallenger ? myCards : opponentCards,
-                player2Cards: isChallenger ? opponentCards : myCards,
-                standbyCard: null,
-                phase: 'STANDBY',
-                currentTurn: drawCardPlayer === 'me' ? userId : (isChallenger ? battleState.opponent : battleState.challenger),
-                battleLog: battleLog
-            };
-    
-            if (newOpHP <= 0 || newMyHP <= 0) {
-                updates.status = 'finished';
-                updates.winner = newOpHP <= 0 ? userId : (isChallenger ? battleState.opponent : battleState.challenger);
-                updates.finishedAt = Date.now();
-            }
-    
-            console.log('📤 배틀 결과 업데이트');
-            db.ref('seoEunWoo_battles/' + currentBattleId).update(updates);
-            playSound(900);
-        }
-
-        function addEffect(type, side) {
-            const area = side === 'my' ? document.querySelector('.my-area') : document.querySelector('.opponent-area');
-            if (!area) return;
-    
-            const effectDiv = document.createElement('div');
-            effectDiv.className = `${type}-effect`;
-            effectDiv.textContent = type === 'attack' ? '⚔️' : type === 'defense' ? '🛡️' : '💨';
-            area.style.position = 'relative';
-            area.appendChild(effectDiv);
-    
-            setTimeout(() => effectDiv.remove(), 1000);
-        }
-
-        function calculateDamage(cardType, isCritical) {
-            if (cardType === 'attack') return isCritical ? 25 : 15;
-            if (cardType === 'dodge') return isCritical ? 20 : 10;
-            return 0;
-        }
-
-        function getCardName(type) {
-            if (type === 'attack') return '공격';
-            if (type === 'defense') return '방어';
-            if (type === 'dodge') return '회피';
-            return '';
-        }
-
-        function drawCard() {
-            if (!battleState || battleState.currentTurn !== userId || battlePhase !== 'STANDBY') {
-                showToast('지금은 카드를 뽑을 수 없습니다!', 'fail');
-                return;
-            }
-    
-            if (myCards.length >= 5) {
-                showToast('카드는 최대 5장!', 'fail');
-                return;
-            }
-    
-            const newCard = generateInitialCards()[0];
-            myCards.push(newCard);
-    
-            const isChallenger = battleState.challenger === userId;
-    
-            db.ref('seoEunWoo_battles/' + currentBattleId).update({
                 player1Cards: isChallenger ? myCards : battleState.player1Cards,
                 player2Cards: isChallenger ? battleState.player2Cards : myCards,
                 currentTurn: isChallenger ? battleState.opponent : battleState.challenger,
                 battleLog: [...(battleState.battleLog || []), {
-                    message: `${isChallenger ? battleState.challengerName : battleState.opponentName}가 카드를 뽑고 턴을 종료했습니다.`,
+                    message: (isChallenger ? battleState.challengerName : battleState.opponentName) + '는 대응 카드가 없어 자동 드로우!',
                     critical: false
                 }]
-            });
-    
-            playSound(800);
-        }
-
-        function forfeitBattle() {
-            if (!confirm('정말 포기하시겠습니까?')) return;
-            const isChallenger = battleState.challenger === userId;
-            db.ref('seoEunWoo_battles/' + currentBattleId).update({
-                status: 'finished',
-                winner: isChallenger ? battleState.opponent : battleState.challenger,
-                finishedAt: Date.now(),
-                forfeit: true
-            });
-        }
-
-        function endBattle() {
-            if (battleListener) {
-                db.ref('seoEunWoo_battles/' + currentBattleId).off('value', battleListener);
-                battleListener = null;
-            }
-    
-            const isWinner = battleState && battleState.winner === userId;
-            const reward = isWinner ? Math.floor(calculatePower() * 5) : 0;
-    
-            if (isWinner) {
-                money += reward;
-                updateUI();
-                saveGame();
-            }
-    
-            showToast(isWinner ? `승리! +₩${reward}` : '패배!', isWinner ? 'success' : 'fail');
-            playSound(isWinner ? 1200 : 300, 500);
-    
-            localStorage.removeItem('seoEunWoo_battleId'); // 배틀 종료시 삭제
-    
-            setTimeout(() => {
-                document.getElementById('battleArena').classList.remove('show');
-                document.getElementById('battleInvitation').classList.remove('show');
-                document.getElementById('invitationBadge').classList.remove('show');
-                currentBattleId = null;
-                battleState = null;
-                myCards = [];
-                opponentCards = [];
-                battlePhase = 'IDLE';
-                console.log('🏁 배틀 종료');
-            }, 3000);
-        }
-
-
-        function saveGame() {
-            const state = {
-                Lv, XP, maxXP, Health, maxHealth, Work, maxWork, Karma, maxKarma, money,
-                ownedFoods, equippedFood, jobLevels, nickname
             };
-            localStorage.setItem('seoEunWoo_v4', JSON.stringify(state));
+            
+            console.log('📤 자동 드로우 업데이트');
+            db.ref('seoEunWoo_battles/' + currentBattleId).update(updates);
+            playSound(600);
+            return;
         }
-
-        function loadGame() {
-            const saved = localStorage.getItem('seoEunWoo_v4');
-            if (saved) {
-                const s = JSON.parse(saved);
-                Lv = s.Lv || 1;
-                XP = s.XP || 0;
-                maxXP = s.maxXP || 100;
-                Health = s.Health || 100;
-                maxHealth = s.maxHealth || 100;
-                Work = s.Work || 50;
-                maxWork = s.maxWork || 50;
-                Karma = s.Karma || 0;
-                maxKarma = s.maxKarma || 100;
-                money = s.money || 5000;
-                ownedFoods = s.ownedFoods || ['yukpo'];
-                equippedFood = s.equippedFood || 'yukpo';
-                jobLevels = s.jobLevels || {};
-                nickname = s.nickname || nickname;
-                normalJobs.forEach(job => {
-                    if (!jobLevels[job.id]) jobLevels[job.id] = 0;
-                });
-                darkJobs.forEach(job => {
-                    if (!jobLevels[job.id]) jobLevels[job.id] = 0;
-                });
-            }
-        }
-
-        function resetGame() {
-            localStorage.removeItem('seoEunWoo_v4');
-            location.reload();
-        }
-
-        // 초기화
-        window.onload = () => {
-            // 배틀 상태 완전 초기화
-            currentBattleId = null;
-            battleState = null;
-            myCards = [];
-            opponentCards = [];
-            battleListener = null;
-            battlePhase = 'IDLE';
-            document.getElementById('battleArena').classList.remove('show');
-            document.getElementById('battleInvitation').classList.remove('show');
-            document.getElementById('invitationBadge').classList.remove('show');
-            
-            console.log('🎮 게임 시작 - 초기화 완료');
-            
-            loadGame();
-            updateEquippedFood();
-            updateUnlockProgress();
-            renderJobs();
-            updateUI();
-            
-            // 배틀 복원 (새로고침 시)
-            const savedBattleId = localStorage.getItem('seoEunWoo_battleId');
-            if (savedBattleId) {
-                console.log('🔄 저장된 배틀 복원 시도:', savedBattleId);
-                setTimeout(() => {
-                    db.ref('seoEunWoo_battles/' + savedBattleId).once('value', (snapshot) => {
-                        const battle = snapshot.val();
-                        if (battle && battle.status === 'ready') {
-                            console.log('✅ 배틀 복원 성공');
-                            startBattle(savedBattleId);
-                        } else {
-                            console.log('❌ 배틀 없음, 저장 데이터 삭제');
-                            localStorage.removeItem('seoEunWoo_battleId');
-                        }
-                    });
-                }, 1000);
-            }
-            
-            // 배틀 초대 체크는 2초 후
-            setTimeout(() => {
-                checkBattleInvitations();
-                console.log('🔔 배틀 초대 리스너 시작');
-            }, 2000);
-        };
-
-        // 자동 회복
-        setInterval(() => {
-            if (Health > 0) {
-                Work = Math.min(maxWork, Work + 2);
-                updateUI();
-            }
-        }, 3000);
-
-        // 자동 저장
-        setInterval(saveGame, 10000);
-
-        // 모달 닫기
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('show');
-                }
-            });
-        });
-
-        $(document).ready(function(){
-        $(document).bind('keydown',function(e){
-            if ( e.keyCode == 123 /* F12 */) {
-                e.preventDefault();
-                e.returnValue = false;
-            }
-        });
-    });
+        
+        // 대응 가능: 배틀 페이즈
+        console.log('⚔️ 배틀 페이즈 진입!');
+        myCards.splice(index, 1);
+        addEffect(card.type, 'my');
+        resolveBattle(standbyCard, card);
+    }
     
-    // 우측 클릭 방지
-    document.onmousedown=disableclick;
-    status="Right click is not available.";
-    
-    function disableclick(event) {
-        if (event.button==2) {
-            alert(status);
-            return false;
+    console.log('===============================');
+}
+
+function resolveBattle(card1, card2) {
+    const isChallenger = battleState.challenger === userId;
+
+    const success1 = Math.random() < 0.6;
+    const success2 = Math.random() < 0.6;
+    const critical1 = success1 && Math.random() < 0.25;
+    const critical2 = success2 && Math.random() < 0.25;
+
+    console.log('⚔️ 배틀 판정:', {success1, critical1, success2, critical2});
+
+    let newMyHP = isChallenger ? battleState.player1HP : battleState.player2HP;
+    let newOpHP = isChallenger ? battleState.player2HP : battleState.player1HP;
+    let battleLog = [...(battleState.battleLog || [])];
+    let drawCardPlayer = null;
+
+    battleLog.push({message: `⚔️ 배틀 페이즈 시작!`, critical: false});
+
+    // 이펙트 추가
+    addEffect(card1.type, card1.playerId === userId ? 'my' : 'op');
+    setTimeout(() => addEffect(card2.type, card2.playerId === userId ? 'op' : 'my'), 500);
+
+    // 무승부
+    if (success1 === success2) {
+        battleLog.push({message: `무승부! 양쪽 모두 카드를 한 장 뽑습니다.`, critical: false});
+        if (myCards.length < 5) myCards.push(generateInitialCards()[0]);
+        if (opponentCards.length < 5) opponentCards.push(generateInitialCards()[0]);
+    }
+    // 카드1 성공, 카드2 실패
+    else if (success1 && !success2) {
+        const damage = calculateDamage(card1.type, critical1);
+        if (card1.playerId === userId) {
+            newOpHP = Math.max(0, newOpHP - damage);
+            battleLog.push({message: `${card1.playerName}의 ${critical1 ? '치명적인 ' : ''}${getCardName(card1.type)}! -${damage} HP`, critical: critical1});
+            drawCardPlayer = 'opponent';
+        } else {
+            newMyHP = Math.max(0, newMyHP - damage);
+            battleLog.push({message: `${card1.playerName}의 ${critical1 ? '치명적인 ' : ''}${getCardName(card1.type)}! -${damage} HP`, critical: critical1});
+            drawCardPlayer = 'me';
         }
     }
-    </script>
+    // 카드2 성공, 카드1 실패
+    else if (!success1 && success2) {
+        const playerName = isChallenger ? battleState.challengerName : battleState.opponentName;
+        if (card2.type === 'defense') {
+            const heal = critical2 ? 20 : 10;
+            newMyHP = Math.min(100, newMyHP + heal);
+            battleLog.push({message: `${playerName}의 ${critical2 ? '완벽한 ' : ''}방어! +${heal} HP`, critical: critical2});
+        } else if (card2.type === 'dodge') {
+            const damage = critical2 ? 20 : 10;
+            newOpHP = Math.max(0, newOpHP - damage);
+            battleLog.push({message: `${playerName}의 ${critical2 ? '완벽한 ' : ''}회피 반격! -${damage} HP`, critical: critical2});
+        } else {
+            const damage = critical2 ? 25 : 15;
+            newOpHP = Math.max(0, newOpHP - damage);
+            battleLog.push({message: `${playerName}의 ${critical2 ? '치명적인 ' : ''}공격! -${damage} HP`, critical: critical2});
+        }
+        drawCardPlayer = 'opponent';
+    }
+
+    // 피해받은 플레이어 추가 드로우
+    if (drawCardPlayer === 'me' && myCards.length < 5) {
+        myCards.push(generateInitialCards()[0]);
+        battleLog.push({message: `피해를 받아 카드를 1장 뽑았습니다.`, critical: false});
+    } else if (drawCardPlayer === 'opponent' && opponentCards.length < 5) {
+        opponentCards.push(generateInitialCards()[0]);
+    }
+
+    const updates = {
+        player1HP: isChallenger ? newMyHP : newOpHP,
+        player2HP: isChallenger ? newOpHP : newMyHP,
+        player1Cards: isChallenger ? myCards : opponentCards,
+        player2Cards: isChallenger ? opponentCards : myCards,
+        standbyCard: null,
+        phase: 'STANDBY',
+        currentTurn: drawCardPlayer === 'me' ? userId : (isChallenger ? battleState.opponent : battleState.challenger),
+        battleLog: battleLog
+    };
+
+    if (newOpHP <= 0 || newMyHP <= 0) {
+        updates.status = 'finished';
+        updates.winner = newOpHP <= 0 ? userId : (isChallenger ? battleState.opponent : battleState.challenger);
+        updates.finishedAt = Date.now();
+    }
+
+    console.log('📤 배틀 결과 업데이트');
+    db.ref('seoEunWoo_battles/' + currentBattleId).update(updates);
+    playSound(900);
+}
+
+function addEffect(type, side) {
+    const area = side === 'my' ? document.querySelector('.my-area') : document.querySelector('.opponent-area');
+    if (!area) return;
+
+    const effectDiv = document.createElement('div');
+    effectDiv.className = `${type}-effect`;
+    effectDiv.textContent = type === 'attack' ? '⚔️' : type === 'defense' ? '🛡️' : '💨';
+    area.style.position = 'relative';
+    area.appendChild(effectDiv);
+
+    setTimeout(() => effectDiv.remove(), 1000);
+}
+
+function calculateDamage(cardType, isCritical) {
+    if (cardType === 'attack') return isCritical ? 25 : 15;
+    if (cardType === 'dodge') return isCritical ? 20 : 10;
+    return 0;
+}
+
+function getCardName(type) {
+    if (type === 'attack') return '공격';
+    if (type === 'defense') return '방어';
+    if (type === 'dodge') return '회피';
+    return '';
+}
+
+function drawCard() {
+    if (!battleState || battleState.currentTurn !== userId || battlePhase !== 'STANDBY') {
+        showToast('지금은 카드를 뽑을 수 없습니다!', 'fail');
+        return;
+    }
+
+    if (myCards.length >= 5) {
+        showToast('카드는 최대 5장!', 'fail');
+        return;
+    }
+
+    const newCard = generateInitialCards()[0];
+    myCards.push(newCard);
+
+    const isChallenger = battleState.challenger === userId;
+
+    db.ref('seoEunWoo_battles/' + currentBattleId).update({
+        player1Cards: isChallenger ? myCards : battleState.player1Cards,
+        player2Cards: isChallenger ? battleState.player2Cards : myCards,
+        currentTurn: isChallenger ? battleState.opponent : battleState.challenger,
+        battleLog: [...(battleState.battleLog || []), {
+            message: `${isChallenger ? battleState.challengerName : battleState.opponentName}가 카드를 뽑고 턴을 종료했습니다.`,
+            critical: false
+        }]
+    });
+
+    playSound(800);
+}
+
+function forfeitBattle() {
+    if (!confirm('정말 포기하시겠습니까?')) return;
+    const isChallenger = battleState.challenger === userId;
+    db.ref('seoEunWoo_battles/' + currentBattleId).update({
+        status: 'finished',
+        winner: isChallenger ? battleState.opponent : battleState.challenger,
+        finishedAt: Date.now(),
+        forfeit: true
+    });
+}
+
+function endBattle() {
+    if (battleListener) {
+        db.ref('seoEunWoo_battles/' + currentBattleId).off('value', battleListener);
+        battleListener = null;
+    }
+
+    const isWinner = battleState && battleState.winner === userId;
+    const reward = isWinner ? Math.floor(calculatePower() * 5) : 0;
+
+    if (isWinner) {
+        money += reward;
+        updateUI();
+        saveGame();
+    }
+
+    showToast(isWinner ? `승리! +₩${reward}` : '패배!', isWinner ? 'success' : 'fail');
+    playSound(isWinner ? 1200 : 300, 500);
+
+    localStorage.removeItem('seoEunWoo_battleId'); // 배틀 종료시 삭제
+
+    setTimeout(() => {
+        document.getElementById('battleArena').classList.remove('show');
+        document.getElementById('battleInvitation').classList.remove('show');
+        document.getElementById('invitationBadge').classList.remove('show');
+        currentBattleId = null;
+        battleState = null;
+        myCards = [];
+        opponentCards = [];
+        battlePhase = 'IDLE';
+        discardMode = false;
+        console.log('🏁 배틀 종료');
+    }, 3000);
+}
+
+function saveGame() {
+    const state = {
+        Lv, XP, maxXP, Health, maxHealth, Work, maxWork, Karma, maxKarma, money,
+        ownedFoods, equippedFood, jobLevels, nickname
+    };
+    localStorage.setItem('seoEunWoo_v4', JSON.stringify(state));
+}
+
+function loadGame() {
+    const saved = localStorage.getItem('seoEunWoo_v4');
+    if (saved) {
+        const s = JSON.parse(saved);
+        Lv = s.Lv || 1;
+        XP = s.XP || 0;
+        maxXP = s.maxXP || 100;
+        Health = s.Health || 100;
+        maxHealth = s.maxHealth || 100;
+        Work = s.Work || 50;
+        maxWork = s.maxWork || 50;
+        Karma = s.Karma || 0;
+        maxKarma = s.maxKarma || 100;
+        money = s.money || 5000;
+        ownedFoods = s.ownedFoods || ['yukpo'];
+        equippedFood = s.equippedFood || 'yukpo';
+        jobLevels = s.jobLevels || {};
+        nickname = s.nickname || nickname;
+        normalJobs.forEach(job => {
+            if (!jobLevels[job.id]) jobLevels[job.id] = 0;
+        });
+        darkJobs.forEach(job => {
+            if (!jobLevels[job.id]) jobLevels[job.id] = 0;
+        });
+    }
+}
+
+function resetGame() {
+    localStorage.removeItem('seoEunWoo_v4');
+    location.reload();
+}
+
+// 초기화
+window.onload = () => {
+    // 배틀 상태 완전 초기화
+    currentBattleId = null;
+    battleState = null;
+    myCards = [];
+    opponentCards = [];
+    battleListener = null;
+    battlePhase = 'IDLE';
+    discardMode = false;
+    document.getElementById('battleArena').classList.remove('show');
+    document.getElementById('battleInvitation').classList.remove('show');
+    document.getElementById('invitationBadge').classList.remove('show');
+    
+    console.log('🎮 게임 시작 - 초기화 완료');
+    
+    loadGame();
+    updateEquippedFood();
+    updateUnlockProgress();
+    renderJobs();
+    updateUI();
+    
+    // 배틀 복원 (새로고침 시)
+    const savedBattleId = localStorage.getItem('seoEunWoo_battleId');
+    if (savedBattleId) {
+        console.log('🔄 저장된 배틀 복원 시도:', savedBattleId);
+        setTimeout(() => {
+            db.ref('seoEunWoo_battles/' + savedBattleId).once('value', (snapshot) => {
+                const battle = snapshot.val();
+                if (battle && battle.status === 'ready') {
+                    console.log('✅ 배틀 복원 성공');
+                    startBattle(savedBattleId);
+                } else {
+                    console.log('❌ 배틀 없음, 저장 데이터 삭제');
+                    localStorage.removeItem('seoEunWoo_battleId');
+                }
+            });
+        }, 1000);
+    }
+    
+    // 배틀 초대 체크는 2초 후
+    setTimeout(() => {
+        checkBattleInvitations();
+        console.log('🔔 배틀 초대 리스너 시작');
+    }, 2000);
+};
+
+// 자동 회복
+setInterval(() => {
+    if (Health > 0) {
+        Work = Math.min(maxWork, Work + 2);
+        updateUI();
+    }
+}, 3000);
+
+// 자동 저장
+setInterval(saveGame, 10000);
+
+// 모달 닫기
+document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('show');
+        }
+    });
+});
+
+$(document).ready(function(){
+    $(document).bind('keydown',function(e){
+        if ( e.keyCode == 123 /* F12 */) {
+            e.preventDefault();
+            e.returnValue = false;
+        }
+    });
+});
+
+// 우측 클릭 방지
+document.onmousedown=disableclick;
+status="Right click is not available.";
+
+function disableclick(event) {
+    if (event.button==2) {
+        alert(status);
+        return false;
+    }
+}
+</script>
 </body>
 </html>
